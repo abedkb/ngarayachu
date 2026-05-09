@@ -678,7 +678,6 @@ async function doRegister(){
   const phone=normalizePhone(simu);
   const btn=$('reg-submit-btn');
   btn.disabled=true;
-  showLoading();
 
   try {
     if(!allLeaders.length) allLeaders = await DB.getAll('leaders');
@@ -703,7 +702,6 @@ async function doRegister(){
 
   } catch(e){
     setAlert('reg-alert',`Hitilafu: ${e.message||'Jaribu tena.'}`, 'error');
-    hideLoading();
   } finally{
     btn.disabled=false;
   }
@@ -731,7 +729,7 @@ async function doLogin(){
   const pin=$('login-pin')?.value.trim();
   if(!simu||!pin){ setAlert('login-alert','Weka namba ya simu na PIN.','error'); return; }
   const phone=normalizePhone(simu);
-  const btn=$('login-btn'); btn.disabled=true; showLoading();
+  const btn=$('login-btn'); btn.disabled=true;
   try {
     const rows=await DB.getWhere('members','namba_simu',phone);
     const user=rows.find(m=>m.pin===pin);
@@ -742,7 +740,7 @@ async function doLogin(){
     await loadMemberDashboard();
     showScreen('screen-member');
   } catch(e){ setAlert('login-alert',`Hitilafu: ${e.message||'Jaribu tena.'}`, 'error'); }
-  finally{ btn.disabled=false; hideLoading(); }
+  finally{ btn.disabled=false; }
 }
 
 function doLogout(){ currentUser=null; _readCache=new Set(); showScreen('screen-welcome'); toast('Umetoka salama'); }
@@ -752,7 +750,6 @@ function doLogout(){ currentUser=null; _readCache=new Set(); showScreen('screen-
 // ════════════════════════════════════════════════════════════
 async function loadMemberDashboard(){
   if(!currentUser) return;
-  showLoading();
   try {
     const freshArr=await DB.getWhere('members','id',currentUser.id);
     if(freshArr.length) currentUser=freshArr[0];
@@ -784,7 +781,6 @@ async function loadMemberDashboard(){
     renderMemberAnnouncementsFull(myTangazo);
     renderMemberRambirambiStatus(myRambirambi);
   } catch(e){ toast('Hitilafu ya kupakia data: '+e.message); }
-  finally{ hideLoading(); }
 }
 
 function renderMemberRambirambiStatus(myRambirambi=[]){
@@ -912,7 +908,7 @@ async function doAdminLogin(){
   const user=$('admin-user')?.value.trim();
   const pass=$('admin-pw')?.value.trim();
   if(!user||!pass){ setAlert('admin-login-alert','Weka jina la mtumiaji na nenosiri.','error'); return; }
-  const btn=$('admin-login-btn'); btn.disabled=true; showLoading();
+  const btn=$('admin-login-btn'); btn.disabled=true;
   try {
     allLeaders=await DB.getAll('leaders');
     const found=allLeaders.find(l=>l.user_name===user&&l.password===pass&&l.is_active!==false);
@@ -923,13 +919,12 @@ async function doAdminLogin(){
     showScreen('screen-admin');
     await renderLeaderDashboard();
   } catch(e){ setAlert('admin-login-alert',`Hitilafu: ${e.message}`,'error'); }
-  finally{ btn.disabled=false; hideLoading(); }
+  finally{ btn.disabled=false; }
 }
 
 function doAdminLogout(){ currentLeader=null; showScreen('screen-welcome'); }
 
 async function renderLeaderDashboard(){
-  showLoading();
   try {
     allLeaders=await DB.getAll('leaders');
     allWanachama=await DB.getAll('members');
@@ -941,7 +936,6 @@ async function renderLeaderDashboard(){
     renderMalipoHistory(); renderMichangoList(); renderPenaltyList();
     renderAdminRoleUI(); renderAdminAnnouncements(); populateMalipoMembers();
   } catch(e){ toast('Hitilafu ya kupakia data: '+e.message); }
-  finally{ hideLoading(); }
 }
 
 function showAdminTab(tab){
@@ -1276,7 +1270,6 @@ document.addEventListener('DOMContentLoaded', async ()=>{
   showScreen('screen-welcome');
   if($('malipo-tarehe')) $('malipo-tarehe').value=leoISO();
   if($('rambirambi-tarehe')) $('rambirambi-tarehe').value=leoISO();
-  ongezaMtotoForm();
   console.log('Ngara Yachu v4.1 — Mobile WA Queue — Imepakiwa.');
 });
 </script>
