@@ -176,6 +176,7 @@
 
       <div class="welcome-buttons">
         <button class="btn welcome-btn-ingia" onclick="showScreen('screen-login')">🔑 Ingia</button>
+        <button class="btn welcome-btn-register" onclick="showScreen('screen-leader-login')">👑 Kiongozi</button>
         <button class="btn welcome-btn-register" onclick="showScreen('screen-register')">📝 Jiandikishe</button>
       </div>
     </div>
@@ -209,6 +210,9 @@
             <option value="treasurer">💰 Mweka Hazina</option>
           </select>
         </div>
+        <div class="form-group"><label>Jina la Kiongozi / Username</label><input type="text" class="form-input" id="reg-leader-username" placeholder="mfano: mwenyekiti-ngara"/></div>
+        <div class="form-group"><label>Neno Siri ya Kiongozi</label><input type="password" class="form-input" id="reg-leader-password" placeholder="Angalau herufi 6"/></div>
+        <div class="form-group"><label>Rudia Neno Siri</label><input type="password" class="form-input" id="reg-leader-password2" placeholder="Rudia neno siri"/></div>
       </div>
       <div class="form-group"><label>PIN ya Akaunti (Nambari 4)</label><input type="password" class="form-input" id="reg-pin" maxlength="4" placeholder="1234"/></div>
       <div class="form-group"><label>Rudia PIN</label><input type="password" class="form-input" id="reg-pin2" maxlength="4" placeholder="1234"/></div>
@@ -239,9 +243,30 @@
     <div class="card">
       <div class="card-title">🔐 Ingia</div>
       <div id="login-alert"></div>
-      <div class="form-group"><label>Namba ya Simu</label><input type="text" class="form-input" id="login-simu" placeholder="07XXXXXXXX"/></div>
-      <div class="form-group"><label>PIN</label><input type="password" class="form-input" id="login-pin" maxlength="4" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+          <div class="form-group"><label>Namba ya Simu</label><input type="text" class="form-input" id="login-simu" placeholder="07XXXXXXXX"/></div>
+      <div class="form-group"><label>PIN</label><input type="password" class="form-input" id="login-pin" maxlength="32" onkeydown="if(event.key==='Enter')doLogin()"/></div>
       <button class="btn btn-primary" id="login-btn" onclick="doLogin()">Ingia</button>
+      <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
+        <button class="btn btn-outline" style="font-size:13px;" onclick="showScreen('screen-forgot-password')">🔑 Umesahau PIN?</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LEADER LOGIN -->
+<div class="screen" id="screen-leader-login">
+  <div style="background:var(--primary-dark);padding:14px 18px;display:flex;align-items:center;gap:10px;">
+    <button onclick="showScreen('screen-welcome')" style="background:none;border:none;color:white;font-size:22px;cursor:pointer;">←</button>
+    <div><p style="color:white;font-weight:800;font-size:15px;">Ingia Kiongozi</p></div>
+  </div>
+  <div class="page-wrap">
+    <div class="card">
+      <div class="card-title">👑 Ingia kama Kiongozi</div>
+      <div id="leader-login-alert"></div>
+      <div class="form-group"><label>Namba ya Simu ya Kiongozi</label><input type="text" class="form-input" id="leader-login-simu" placeholder="07XXXXXXXX"/></div>
+      <div class="form-group"><label>Jina la Kiongozi / Username</label><input type="text" class="form-input" id="leader-login-username" placeholder="mfano: mwenyekiti-ngara (hiari)"/></div>
+      <div class="form-group"><label>Neno Siri</label><input type="password" class="form-input" id="leader-login-password" maxlength="32" onkeydown="if(event.key==='Enter')doLogin('leader')"/></div>
+      <button class="btn btn-primary" id="leader-login-btn" onclick="doLogin('leader')">Ingia</button>
       <div style="text-align:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);">
         <button class="btn btn-outline" style="font-size:13px;" onclick="showScreen('screen-forgot-password')">🔑 Umesahau PIN?</button>
       </div>
@@ -369,6 +394,10 @@
         <div class="stat-card"><div class="stat-num" id="a-tangazo-count">0</div><div class="stat-lbl">Matangazo</div></div>
       </div>
       <div class="card"><div class="card-title">⚠ Wanaohitaji Ufuatiliaji</div><div id="penalty-list"></div></div>
+      <div class="card">
+        <div class="card-title">👤 Profaili ya Kiongozi</div>
+        <div id="leader-profile-section"></div>
+      </div>
     </div>
 
     <div id="atab-wanachama" style="display:none;">
@@ -472,8 +501,8 @@
 // ════════════════════════════════════════════════════════════
 // SUPABASE CONFIG
 // ════════════════════════════════════════════════════════════
-const SUPABASE_URL = 'https://vkemiblurofzczjafrzj.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrZW1pYmx1cm9memN6amFmcnpqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNzI3MjYsImV4cCI6MjA4OTc0ODcyNn0.awQQ6kZXkyU5_PPe4N9dIRu5rf1PiHw4ysaQp3rsH4k';
+const SUPABASE_URL = 'https://mwvfxrsgjnusmxhkpuqo.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im13dmZ4cnNnam51c214aGtwdXFvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NTM0NzUsImV4cCI6MjA5NDUyOTQ3NX0.1uv0trmkw3d0IJd-nCNzNn3XApQ0D9aF-3Q-MLEYqms';
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -487,6 +516,23 @@ const WA_MWEKAHAZINA = '255757213022';
 const MIN_SALIO = 30000;
 const FAINI     = 15000;
 const MSAADA    = 2000000;
+
+const DEFAULT_LEADER_CREDENTIALS = {
+  chairperson: { password: 'mugi@2026' },
+  secretary:   { password: 'javasengati20!' },
+  treasurer:   { password: 'mk14ngaraboy' }
+};
+
+function getDefaultLeaderCredentials(role){
+  return DEFAULT_LEADER_CREDENTIALS[role] || { password:'' };
+}
+
+function matchesDefaultLeaderCredentials(leader, password){
+  if(!leader || !leader.role) return false;
+  const defaults = getDefaultLeaderCredentials(leader.role);
+  return defaults.password === String(password||'').trim();
+}
+
 
 // ════════════════════════════════════════════════════════════
 // APP STATE
@@ -776,12 +822,18 @@ async function doRegister(){
   const pin2=$('reg-pin2')?.value.trim();
   const isLeader=$('reg-is-leader')?.checked;
   const leaderPosition=$('reg-leader-position')?.value;
+  const leaderUsername=$('reg-leader-username')?.value.trim();
+  const leaderPassword=$('reg-leader-password')?.value.trim();
+  const leaderPassword2=$('reg-leader-password2')?.value.trim();
 
   if(!jina||!simu||!pin||!pin2){ setAlert('reg-alert','Jaza taarifa zote muhimu.','error'); return; }
   if(jina.split(' ').length<3){ setAlert('reg-alert','Tafadhali andika angalau majina matatu.','error'); return; }
   if(pin!==pin2){ setAlert('reg-alert','PIN hazilingani.','error'); return; }
   if(pin.length!==4||isNaN(pin)){ setAlert('reg-alert','PIN lazima iwe nambari 4.','error'); return; }
   if(isLeader&&!leaderPosition){ setAlert('reg-alert','Chagua jina la cheo ulichotaka kusajili kama.','error'); return; }
+  if(isLeader&&!leaderUsername){ setAlert('reg-alert','Weka username ya kiongozi.','error'); return; }
+  if(isLeader&&(!leaderPassword||leaderPassword.length<6)){ setAlert('reg-alert','Neno siri ya kiongozi lazima liwe na herufi angalau 6.','error'); return; }
+  if(isLeader&&leaderPassword!==leaderPassword2){ setAlert('reg-alert','Neno siri za kiongozi hazilingani.','error'); return; }
 
   const phone=normalizePhone(simu);
   const btn=$('reg-submit-btn');
@@ -821,31 +873,38 @@ async function doRegister(){
         return;
       }
       
-      // Create member account for the leader as well, since leaders must also be registered members.
-      const member=await DB.insert('members',{
-        jina_kamili:jina,
-        namba_simu:phone,
-        pin,
-        salio:0,
-        status:'approved',
-        jumla_michango:0,
-        total_fines:0
-      });
+      // Create member account for the leader. If anything fails afterward, clean up.
+      let member = null;
+      try {
+        member=await DB.insert('members',{
+          jina_kamili:jina,
+          namba_simu:phone,
+          pin,
+          salio:0,
+          status:'approved',
+          jumla_michango:0,
+          total_fines:0
+        });
 
-      const tegData = tegEntries.map(t => ({ ...t, mwanachama_id: member.id }));
-      for(const t of tegData){ await DB.insert('dependants',t); }
+        const tegData = tegEntries.map(t => ({ ...t, mwanachama_id: member.id }));
+        for(const t of tegData){ await DB.insert('dependants',t); }
 
-      const newLeader=await DB.insert('leaders',{
-        user_name:jina,
-        password:pin,
-        wa:phone,
-        cheo:roleName(leaderPosition),
-        role:leaderPosition,
-        is_active:true
-      });
-      allLeaders.push(newLeader);
+        const newLeader=await DB.insert('leaders',{
+          user_name:leaderUsername,
+          password:leaderPassword,
+          wa:phone,
+          cheo:roleName(leaderPosition),
+          role:leaderPosition,
+          is_active:true
+        });
+        allLeaders.push(newLeader);
+      } catch(innerErr) {
+        // Roll back the member record so the phone number is not left orphaned
+        if(member?.id){ try{ await DB.remove('members',member.id); }catch(_){} }
+        throw innerErr;
+      }
       hideLoading();
-      setAlert('reg-alert','✅ Akaunti yako ya Mwanachama na Kiongozi imehifadhiwa! Unaweza sasa kuingia kama Kiongozi.','success');
+      setAlert('reg-alert',`✅ Akaunti yako ya Mwanachama na Kiongozi imehifadhiwa! Ingia kama Kiongozi kwa kutumia username "${leaderUsername}" na neno siri ulioweka.`,`success`);
       toast('Usajili wa Kiongozi umefanikiwa');
       clearRegisterForm();
       setTimeout(()=>{ showScreen('screen-welcome'); },2000);
@@ -875,7 +934,7 @@ async function doRegister(){
 }
 
 function clearRegisterForm(){
-  ['reg-jina','reg-simu','reg-pin','reg-pin2','teg-baba','teg-mama','teg-baba-mkwe','teg-mama-mkwe','teg-mwenzi'].forEach(id=>{ if($(id))$(id).value=''; });
+  ['reg-jina','reg-simu','reg-pin','reg-pin2','teg-baba','teg-mama','teg-baba-mkwe','teg-mama-mkwe','teg-mwenzi','reg-leader-username','reg-leader-password','reg-leader-password2'].forEach(id=>{ if($(id))$(id).value=''; });
   const c=$('watoto-container'); if(c)c.innerHTML='';
   watotoCount=0;
   $('reg-is-leader').checked=false;
@@ -939,29 +998,54 @@ function collectRegistrationTegemezi(memberId){
   const map=[['Baba','teg-baba'],['Mama','teg-mama'],['Baba Mkwe','teg-baba-mkwe'],['Mama Mkwe','teg-mama-mkwe'],['Mwenzi','teg-mwenzi']];
   const data=[];
   map.forEach(([uhusiano,id])=>{ const v=$(id)?.value.trim(); if(v) data.push({mwanachama_id:memberId||null,uhusiano,jina_kamili:v}); });
-  document.querySelectorAll('#watoto-container input[id^="teg-mtoto"]').forEach((el,i)=>{ const v=el.value.trim(); if(v) data.push({mwanachama_id:memberId||null,uhusiano:`Mtoto ${i+1}`,jina_kamili:v}); });
+  document.querySelectorAll('#watoto-container input[id^="teg-mtoto"]').forEach((el)=>{ const v=el.value.trim(); if(v) data.push({mwanachama_id:memberId||null,uhusiano:'Mtoto',jina_kamili:v}); });
   return data;
 }
 
 // ════════════════════════════════════════════════════════════
 // MEMBER LOGIN
 // ════════════════════════════════════════════════════════════
-async function doLogin(){
-  const simu=$('login-simu')?.value.trim();
-  const pin=$('login-pin')?.value.trim();
-  if(!simu||!pin){ setAlert('login-alert','Weka namba ya simu na PIN.','error'); return; }
-  const phone=normalizePhone(simu);
-  const btn=$('login-btn'); btn.disabled=true;
-  try {
-    const rows=await DB.getWhere('members','namba_simu',phone);
-    const user=rows.find(m=>m.pin===pin);
-    const leaderRows=await DB.getWhere('leaders','wa',phone);
-    const leader=leaderRows.find(l=>l.password===pin&&l.is_active!==false&&!isDefaultLeaderRecord(l));
+async function doLogin(mode){
+  const isLeaderMode = mode==='leader';
+  const username = isLeaderMode ? $('leader-login-username')?.value.trim() : '';
+  const password = isLeaderMode ? $('leader-login-password')?.value.trim() : $('login-pin')?.value.trim();
+  const simu = isLeaderMode ? $('leader-login-simu')?.value.trim() : $('login-simu')?.value.trim();
+  const alertId = isLeaderMode ? 'leader-login-alert' : 'login-alert';
+  const btn = isLeaderMode ? $('leader-login-btn') : $('login-btn');
 
-    if(user){
-      if(user.status!=='approved' && !leader){ setAlert('login-alert','Akaunti yako bado haijaidhinishwa.','warning'); return; }
+  if(isLeaderMode){
+    if(!simu && !username){ setAlert(alertId,'Weka namba ya simu au jina la kiongozi.','error'); return; }
+    if(!password){ setAlert(alertId,'Weka neno siri.','error'); return; }
+  } else {
+    if(!simu||!password){ setAlert(alertId,'Weka namba ya simu na PIN.','error'); return; }
+  }
+
+  const phone = normalizePhone(simu);
+  btn.disabled=true;
+  try {
+    const leaderRows = await DB.getAll('leaders');
+    let leader = null;
+
+    if(isLeaderMode){
+      const normalizedUsername = username.toLowerCase();
+      leader = leaderRows.find(l=>{
+        if(l.is_active===false) return false;
+        const matchesUsername = username && String(l.user_name||'').trim().toLowerCase()===normalizedUsername;
+        const matchesPhone = phone && normalizePhone(l.wa||'')===phone;
+        const passwordMatches = String(l.password||'').trim()===password || matchesDefaultLeaderCredentials(l,password);
+        return (matchesUsername || matchesPhone) && passwordMatches;
+      });
+      if(!leader){ setAlert(alertId,'Jina la kiongozi / namba au neno siri si sahihi.','error'); return; }
+    }
+
+    const rows = await DB.getWhere('members','namba_simu',isLeaderMode ? normalizePhone(leader?.wa||'') : phone);
+    const user = rows.find(m=>m.pin===password);
+    const phoneLeader = isLeaderMode ? leader : leaderRows.find(l=>l.wa===phone && l.is_active!==false && (String(l.password||'').trim()===password || matchesDefaultLeaderCredentials(l,password)));
+
+    if(!isLeaderMode && user){
+      if(user.status!=='approved' && !phoneLeader){ setAlert(alertId,'Akaunti yako bado haijaidhinishwa.','warning'); return; }
       currentUser=user;
-      currentLeader=leader||null;
+      currentLeader=phoneLeader||null;
       currentView = currentLeader ? 'admin' : 'member';
       if(currentLeader){
         $('leader-role-display').textContent=currentLeader.cheo;
@@ -976,10 +1060,22 @@ async function doLogin(){
       return;
     }
 
-    if(leader){
-      currentLeader=leader;
-      currentUser=null;
-      currentView = 'admin';
+    if(phoneLeader){
+      currentLeader=phoneLeader;
+      currentView='admin';
+      const sameMember=await DB.getWhere('members','namba_simu',normalizePhone(currentLeader.wa||''));
+      if(sameMember.length){ currentUser=sameMember[0]; }
+      else {
+        currentUser=await DB.insert('members',{
+          jina_kamili: currentLeader.user_name || roleName(currentLeader.role),
+          namba_simu: normalizePhone(currentLeader.wa||''),
+          pin: password,
+          salio:0,
+          status:'approved',
+          jumla_michango:0,
+          total_fines:0
+        });
+      }
       $('leader-role-display').textContent=currentLeader.cheo;
       $('leader-name-display').textContent=currentLeader.user_name;
       await renderLeaderDashboard();
@@ -987,8 +1083,8 @@ async function doLogin(){
       return;
     }
 
-    setAlert('login-alert','Taarifa za kuingia si sahihi.','error');
-  } catch(e){ setAlert('login-alert',`Hitilafu: ${e.message||'Jaribu tena.'}`, 'error'); }
+    setAlert(alertId,isLeaderMode ? 'Jina la kiongozi au neno siri si sahihi.' : 'Taarifa za kuingia si sahihi.','error');
+  } catch(e){ setAlert(alertId,`Hitilafu: ${e.message||'Jaribu tena.'}`, 'error'); }
   finally{ btn.disabled=false; }
 }
 
@@ -1166,6 +1262,7 @@ async function renderLeaderDashboard(){
     renderAdminSummary(); renderWanachamaList(); renderRambirambiAdmin();
     renderMalipoHistory(); renderMichangoList(); renderPenaltyList();
     renderAdminRoleUI(); renderAdminAnnouncements(); populateMalipoMembers();
+    await renderLeaderProfileSection();
     
     // Load payment date setting for treasurer
     if(can('treasurer')){
@@ -1196,6 +1293,62 @@ function renderAdminRoleUI(){
   $('atab-muhtasari').prepend(notice);
   const composeCard=$('compose-announce-card');
   if(composeCard) composeCard.style.display=role==='secretary'?'block':'none';
+}
+
+async function renderLeaderProfileSection(){
+  const section=$('leader-profile-section'); if(!section) return;
+  let dependants=[];
+  if(currentUser?.id){ dependants = await DB.getWhere('dependants','mwanachama_id',currentUser.id); }
+  const fixedRoles=['Baba','Mama','Baba Mkwe','Mama Mkwe','Mwenzi'];
+  const existingMap={}; dependants.forEach(t=>existingMap[t.uhusiano]=t.jina_kamili);
+  const children = dependants.filter(t=>/^Mtoto\s+\d+$/i.test(t.uhusiano)).sort((a,b)=>(Number(a.uhusiano.replace(/\D/g,''))||0)-(Number(b.uhusiano.replace(/\D/g,''))||0));
+  section.innerHTML=`<div id="leader-profile-alert"></div>
+    <div class="form-group"><label>Jina la Kiongozi</label><input type="text" class="form-input" id="leader-profile-name" value="${escapeHtml(currentLeader.user_name||'')}" placeholder="Jina lako kamili"/></div>
+    <div class="form-group"><label>Namba ya Simu</label><input type="text" class="form-input" value="${escapeHtml(currentLeader.wa||'')}" disabled/></div>
+    <div class="form-group"><label>Cheo</label><input type="text" class="form-input" value="${escapeHtml(currentLeader.cheo||roleName(currentLeader.role))}" disabled/></div>
+    <div id="leader-fixed-teg-form">${fixedRoles.map(role=>`<div class="form-group"><label>${role}</label><input type="text" class="form-input leader-teg-input" id="leader-teg-${role.replace(/\s+/g,'-').toLowerCase()}" value="${escapeHtml(existingMap[role]||'')}" placeholder="Jina la ${role} (hiari)"/></div>`).join('')}</div>
+    <div id="leader-children-container">${children.map((c,i)=>`<div class="form-group"><label>Mtoto ${i+1}</label><input type="text" class="form-input leader-child-input" value="${escapeHtml(c.jina_kamili||'')}" placeholder="Jina la Mtoto ${i+1} (hiari)"/></div>`).join('')}</div>
+    <button class="btn btn-outline btn-sm" type="button" onclick="leaderAddChildField()">➕ Ongeza Mtoto</button>
+    <br><br>
+    <button class="btn btn-primary" type="button" onclick="saveLeaderProfile()">💾 Hifadhi Profaili</button>`;
+}
+
+function leaderAddChildField(){
+  const container=$('leader-children-container'); if(!container) return;
+  const count=container.querySelectorAll('.leader-child-input').length + 1;
+  const row=document.createElement('div'); row.className='form-group';
+  row.innerHTML=`<label>Mtoto ${count}</label><input type="text" class="form-input leader-child-input" placeholder="Jina la Mtoto ${count} (hiari)"/>`;
+  container.appendChild(row);
+}
+
+function collectLeaderProfileDependants(memberId){
+  const fixedRoles=['Baba','Mama','Baba Mkwe','Mama Mkwe','Mwenzi'];
+  const entries=[];
+  fixedRoles.forEach(role=>{ const value=$(`leader-teg-${role.replace(/\s+/g,'-').toLowerCase()}`)?.value.trim(); if(value) entries.push({mwanachama_id:memberId||null,uhusiano:role,jina_kamili:value}); });
+  document.querySelectorAll('.leader-child-input').forEach((el,i)=>{ const value=el.value.trim(); if(value) entries.push({mwanachama_id:memberId||null,uhusiano:`Mtoto ${i+1}`,jina_kamili:value}); });
+  return entries;
+}
+
+async function saveLeaderProfile(){
+  if(!currentLeader) return;
+  const name=$('leader-profile-name')?.value.trim();
+  if(!name){ setAlert('leader-profile-alert','Tafadhali weka jina la kiongozi.','error'); return; }
+  showLoading();
+  try {
+    await DB.update('leaders', currentLeader.id, {user_name: name});
+    currentLeader.user_name=name;
+    if(currentUser?.id){
+      await DB.update('members', currentUser.id, {jina_kamili: name});
+      await sb.from('dependants').delete().eq('mwanachama_id', currentUser.id);
+      const entries=collectLeaderProfileDependants(currentUser.id);
+      if(entries.length){ await sb.from('dependants').insert(entries); }
+    }
+    setAlert('leader-profile-alert','✅ Profaili ya kiongozi imehifadhiwa.','success');
+    toast('Profaili imehifadhiwa');
+    $('leader-name-display').textContent=currentLeader.user_name;
+    await renderLeaderDashboard();
+  } catch(e){ setAlert('leader-profile-alert',`Hitilafu: ${e.message||'Jaribu tena.'}`,'error'); }
+  finally{ hideLoading(); }
 }
 
 function renderAdminSummary(){
