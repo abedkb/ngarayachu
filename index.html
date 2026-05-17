@@ -110,7 +110,12 @@
     .wa-queue-msg-preview{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:12px;font-size:12px;color:#166534;line-height:1.6;margin-bottom:16px;white-space:pre-wrap;max-height:120px;overflow-y:auto;}
     .wa-queue-actions{display:flex;gap:10px;flex-wrap:wrap;}
     .wa-skip-btn{background:#f1f5f9;color:var(--muted);border:none;padding:12px 16px;border-radius:12px;font-weight:700;cursor:pointer;flex:1;}
-    .wa-send-btn{background:#25D366;color:#fff;border:none;padding:12px 20px;border-radius:12px;font-weight:800;cursor:pointer;flex:2;font-size:15px;display:flex;align-items:center;justify-content:center;gap:8px;}
+    .wa-send-btn{background:#25D366;color:#fff;border:none;padding:12px 16px;border-radius:12px;font-weight:800;cursor:pointer;flex:1;font-size:14px;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;}
+    .wa-send-btn.sent{background:#16a34a;opacity:.75;}
+    .sms-send-btn{background:#2196F3;color:#fff;border:none;padding:12px 16px;border-radius:12px;font-weight:800;cursor:pointer;flex:1;font-size:14px;display:flex;align-items:center;justify-content:center;gap:6px;text-decoration:none;}
+    .sms-send-btn.sent{background:#1565C0;opacity:.75;}
+    .wa-next-btn{background:var(--primary);color:#fff;border:none;padding:12px 18px;border-radius:12px;font-weight:800;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;gap:6px;}
+    .wa-channel-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
     .wa-done-box{text-align:center;padding:20px 0;}
     .wa-done-icon{font-size:48px;margin-bottom:12px;}
     .wa-done-title{font-size:18px;font-weight:800;margin-bottom:8px;}
@@ -429,9 +434,14 @@
           <div style="margin-top:8px;font-size:12px;color:var(--muted);" id="audience-selected-count">0 wamechaguliwa</div>
         </div>
         <div class="form-group">
+          <label style="font-size:13px;font-weight:700;display:block;margin-bottom:8px;">Njia za Kutuma:</label>
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px;">
+            <input type="checkbox" id="ann-send-wa" checked style="accent-color:#25D366;width:16px;height:16px;"/>
+            <span>💬 Tuma kupitia WhatsApp kwa kila mwanachama</span>
+          </label>
           <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-            <input type="checkbox" id="ann-send-wa" checked style="accent-color:var(--announce);width:16px;height:16px;"/>
-            <span>📱 Tuma pia kupitia WhatsApp kwa kila mwanachama</span>
+            <input type="checkbox" id="ann-send-sms" checked style="accent-color:#2196F3;width:16px;height:16px;"/>
+            <span>📩 Tuma kupitia SMS kwa kila mwanachama</span>
           </label>
         </div>
         <button class="btn btn-purple" onclick="tutaTangazo()">📤 Tuma Tangazo</button>
@@ -629,10 +639,17 @@ function priorityLabel(p='normal'){ if(p==='urgent')return'Haraka'; if(p==='info
 let _waQueue = [];
 let _waQueueIndex = 0;
 let _waQueueDoneCallback = null;
+let _waQueueWaSent = false;
+let _waQueueSmsSent = false;
 
 function buildWaUrl(phone, message){
   const p = normalizePhone(phone);
   return `https://wa.me/${p}?text=${encodeURIComponent(message)}`;
+}
+
+function buildSmsUrl(phone, message){
+  const p = normalizePhone(phone);
+  return `sms:+${p}?body=${encodeURIComponent(message)}`;
 }
 
 function openWaQueue(recipients, onDone){
@@ -656,8 +673,8 @@ function renderWaQueueStep(){
     el.innerHTML = `
       <div class="wa-done-box">
         <div class="wa-done-icon">✅</div>
-        <div class="wa-done-title">WhatsApp Imetumwa Yote!</div>
-        <div class="wa-done-sub">Ujumbe umetumwa kwa wanachama ${total}.</div>
+        <div class="wa-done-title">Ujumbe Umetumwa Wote!</div>
+        <div class="wa-done-sub">WhatsApp na SMS zimetumwa kwa watu ${total}.</div>
         <br>
         <button class="btn btn-primary" style="width:100%;" onclick="closeWaQueue()">Funga</button>
       </div>`;
@@ -666,39 +683,59 @@ function renderWaQueueStep(){
 
   const rec = _waQueue[_waQueueIndex];
   const pct = Math.round((_waQueueIndex / total) * 100);
-  const remaining = total - _waQueueIndex;
   const preview = rec.message.length > 200 ? rec.message.slice(0, 200) + '...' : rec.message;
+  const waSentCls = _waQueueWaSent ? ' sent' : '';
+  const smsSentCls = _waQueueSmsSent ? ' sent' : '';
+  const waLabel = _waQueueWaSent ? '✅ WhatsApp' : '💬 WhatsApp';
+  const smsLabel = _waQueueSmsSent ? '✅ SMS' : '📩 SMS';
+  const bothSent = _waQueueWaSent && _waQueueSmsSent;
 
   el.innerHTML = `
     <div class="wa-queue-header">
-      <div class="wa-queue-title">📱 Tuma WhatsApp</div>
+      <div class="wa-queue-title">📱 Tuma Ujumbe</div>
       <div class="wa-queue-progress">${_waQueueIndex + 1} / ${total}</div>
     </div>
     <div class="wa-queue-bar"><div class="wa-queue-fill" style="width:${pct}%"></div></div>
     <div class="wa-queue-name">${escapeHtml(rec.name || 'Mwanachama')}</div>
     <div class="wa-queue-phone">📞 ${escapeHtml(rec.phone)}</div>
     <div class="wa-queue-msg-preview">${escapeHtml(preview)}</div>
-    <div class="wa-queue-actions">
-      <button class="wa-skip-btn" onclick="skipWaQueueItem()">Ruka →</button>
+    <div class="wa-channel-row">
       <a href="${escapeHtml(buildWaUrl(rec.phone, rec.message))}"
-         onclick="onWaSendClick()"
-         class="wa-send-btn"
-         style="text-decoration:none;">
-        <span>💬</span>
-        <span>Fungua WhatsApp ${remaining > 1 ? '('+remaining+' zimebaki)' : ''}</span>
+         onclick="onChannelClick('wa')"
+         class="wa-send-btn${waSentCls}">
+        <span>${waLabel}</span>
       </a>
+      <a href="${escapeHtml(buildSmsUrl(rec.phone, rec.message))}"
+         onclick="onChannelClick('sms')"
+         class="sms-send-btn${smsSentCls}">
+        <span>${smsLabel}</span>
+      </a>
+    </div>
+    <div class="wa-queue-actions">
+      <button class="wa-skip-btn" onclick="skipWaQueueItem()">Ruka ↩</button>
+      <button class="wa-next-btn" onclick="nextWaQueueItem()" ${bothSent ? '' : 'style="opacity:.55"'}>
+        Ijayo →
+      </button>
     </div>`;
 }
 
-function onWaSendClick(){
-  setTimeout(()=>{
-    _waQueueIndex++;
-    renderWaQueueStep();
-  }, 800);
+function onChannelClick(channel){
+  if(channel === 'wa') _waQueueWaSent = true;
+  if(channel === 'sms') _waQueueSmsSent = true;
+  setTimeout(renderWaQueueStep, 400);
+}
+
+function nextWaQueueItem(){
+  _waQueueIndex++;
+  _waQueueWaSent = false;
+  _waQueueSmsSent = false;
+  renderWaQueueStep();
 }
 
 function skipWaQueueItem(){
   _waQueueIndex++;
+  _waQueueWaSent = false;
+  _waQueueSmsSent = false;
   renderWaQueueStep();
 }
 
@@ -706,6 +743,8 @@ function closeWaQueue(){
   $('wa-queue-modal').classList.remove('open');
   _waQueue = [];
   _waQueueIndex = 0;
+  _waQueueWaSent = false;
+  _waQueueSmsSent = false;
   if(_waQueueDoneCallback){ _waQueueDoneCallback(); _waQueueDoneCallback=null; }
 }
 
@@ -1414,6 +1453,7 @@ async function tutaTangazo(){
   const priority=$('ann-priority')?.value||'normal';
   const audienceType=$('ann-audience-type')?.value||'all';
   const sendWA=$('ann-send-wa')?.checked;
+  const sendSMS=$('ann-send-sms')?.checked;
   if(!title||!body){ setAlert('announce-compose-alert','Weka kichwa na ujumbe wa tangazo.','error'); return; }
 
   let recipientIds=[],targetMembers=[];
@@ -1427,12 +1467,12 @@ async function tutaTangazo(){
 
   showLoading();
   try {
-    await DB.insert('announcements',{title,body,priority,target:audienceType==='all'?'all':'selected',recipient_ids:recipientIds,audience_count:recipientIds.length,sent_by_name:currentLeader.cheo,sent_by_role:currentLeader.role,wa_sent:sendWA});
+    await DB.insert('announcements',{title,body,priority,target:audienceType==='all'?'all':'selected',recipient_ids:recipientIds,audience_count:recipientIds.length,sent_by_name:currentLeader.cheo,sent_by_role:currentLeader.role,wa_sent:(sendWA||sendSMS)});
     $('ann-title').value=''; $('ann-body').value=''; $('ann-audience-type').value='all'; $('ann-audience-panel').style.display='none'; $('ann-priority').value='normal';
     await renderLeaderDashboard();
     setAlert('announce-compose-alert',`✅ Tangazo limehifadhiwa kwa wanachama ${targetMembers.length}.`, 'success');
 
-    if(sendWA && targetMembers.length){
+    if((sendWA || sendSMS) && targetMembers.length){
       hideLoading();
       notifyMembersAnnouncementWA(targetMembers, title, body, priority);
     }
@@ -1444,7 +1484,7 @@ function renderAdminAnnouncements(){
   const el=$('admin-announcements-list'); if(!el) return;
   const tangazo=allTangazo.filter(a=>a.sent_by_role);
   if(!tangazo.length){ el.innerHTML=`<p style="color:var(--muted);font-size:13px;text-align:center;padding:20px;">Hakuna matangazo yaliyotumwa bado.</p>`; return; }
-  el.innerHTML=tangazo.slice().reverse().map(a=>`<div class="announce-card"><div class="announce-card-header"><div><div class="announce-card-title">${priorityIcon(a.priority)} ${escapeHtml(a.title||'Tangazo')}</div><div class="dai-sub">Na: ${escapeHtml(a.sent_by_name||'—')} · ${new Date(a.created_at).toLocaleString('en-GB')}</div><div class="dai-sub">Wanachama: ${a.audience_count||0} · WA: ${a.wa_sent?'✅ Ilitumwa':'❌ Haikutumwa'}</div></div><span class="badge badge-announce">${priorityLabel(a.priority)}</span></div><div class="announce-card-body">${escapeHtml(a.body||'').replace(/\n/g,'<br>')}</div><div class="announce-card-actions">${can('secretary')?`<button class="btn btn-sm btn-red" onclick="futaTangazo('${a.id}')">🗑 Futa</button>`:''} ${can('secretary')&&!a.wa_sent?`<button class="btn btn-sm btn-wa" onclick="retryWATangazo('${a.id}')">📱 Tuma WhatsApp</button>`:''}</div></div>`).join('');
+  el.innerHTML=tangazo.slice().reverse().map(a=>`<div class="announce-card"><div class="announce-card-header"><div><div class="announce-card-title">${priorityIcon(a.priority)} ${escapeHtml(a.title||'Tangazo')}</div><div class="dai-sub">Na: ${escapeHtml(a.sent_by_name||'—')} · ${new Date(a.created_at).toLocaleString('en-GB')}</div><div class="dai-sub">Wanachama: ${a.audience_count||0} · Ujumbe: ${a.wa_sent?'✅ Ulitumwa':'❌ Haukutumwa'}</div></div><span class="badge badge-announce">${priorityLabel(a.priority)}</span></div><div class="announce-card-body">${escapeHtml(a.body||'').replace(/\n/g,'<br>')}</div><div class="announce-card-actions">${can('secretary')?`<button class="btn btn-sm btn-red" onclick="futaTangazo('${a.id}')">🗑 Futa</button>`:''} ${can('secretary')?`<button class="btn btn-sm btn-wa" onclick="retryWATangazo('${a.id}')">📱 Tuma Tena (WA+SMS)</button>`:''}</div></div>`).join('');
 }
 
 async function futaTangazo(id){
@@ -1474,7 +1514,17 @@ function renderWanachamaList(){
 }
 
 function memberRowHTML(m,isPending=false){
-  return `<div class="member-row"><div class="member-avatar">${memberInitials(m.jina_kamili)}</div><div class="member-info"><p class="member-name">${escapeHtml(m.jina_kamili)}</p><p class="member-phone">📱 ${escapeHtml(m.namba_simu)} · ${pesa(m.salio)}</p><span class="badge ${badgeStatus(m.status)}" style="margin-top:4px;">${escapeHtml(m.status)}</span></div><div class="member-actions"><button class="btn btn-sm btn-primary" onclick="angaliaMwanachama('${m.id}')">👁</button>${isPending&&(can('secretary')||can('chairperson'))?`<button class="btn btn-sm btn-green" onclick="idhinishaMwanachama('${m.id}')">✅ Idhinisha</button>`:''}${(can('secretary')||can('chairperson'))?`<button class="btn btn-sm btn-red" onclick="futaMwanachama('${m.id}')">🗑 Futa</button>`:''}</div></div>`;
+  const contactBtn = (can('secretary')||can('chairperson')) ? `<button class="btn btn-sm" style="background:#e8f4fd;color:#1565C0;border:1px solid #90caf9;" onclick="wasilianaNaMwanachama('${m.id}')">📨 Wasiliana</button>` : '';
+  return `<div class="member-row"><div class="member-avatar">${memberInitials(m.jina_kamili)}</div><div class="member-info"><p class="member-name">${escapeHtml(m.jina_kamili)}</p><p class="member-phone">📱 ${escapeHtml(m.namba_simu)} · ${pesa(m.salio)}</p><span class="badge ${badgeStatus(m.status)}" style="margin-top:4px;">${escapeHtml(m.status)}</span></div><div class="member-actions"><button class="btn btn-sm btn-primary" onclick="angaliaMwanachama('${m.id}')">👁</button>${contactBtn}${isPending&&(can('secretary')||can('chairperson'))?`<button class="btn btn-sm btn-green" onclick="idhinishaMwanachama('${m.id}')">✅ Idhinisha</button>`:''}${(can('secretary')||can('chairperson'))?`<button class="btn btn-sm btn-red" onclick="futaMwanachama('${m.id}')">🗑 Futa</button>`:''}</div></div>`;
+}
+
+function wasilianaNaMwanachama(memberId){
+  const m = allWanachama.find(x => x.id === memberId);
+  if(!m) return;
+  const ujumbe = prompt(`Andika ujumbe kwa ${m.jina_kamili}:`);
+  if(!ujumbe || !ujumbe.trim()) return;
+  const msg = `*NGARA YACHU* 📋\n\nHabari ${m.jina_kamili},\n\n${ujumbe.trim()}\n\n— ${currentLeader ? currentLeader.cheo : 'Kiongozi'}, Ngara Yachu.`;
+  openWaQueue([{phone: m.namba_simu, name: m.jina_kamili, message: msg}]);
 }
 
 async function idhinishaMwanachama(id){
