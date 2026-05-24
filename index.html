@@ -799,7 +799,7 @@ function renderWaQueueStep(){
       <div class="wa-done-box">
         <div class="wa-done-icon">✅</div>
         <div class="wa-done-title">Ujumbe Umetumwa Wote!</div>
-        <div class="wa-done-sub">WhatsApp na SMS zimetumwa kwa watu ${total}.</div>
+        <div class="wa-done-sub">Ujumbe umetumwa kwa watu ${total} kwa njia uliyochagua (WhatsApp, SMS, au zote mbili).</div>
         <br>
         <button class="btn btn-primary" style="width:100%;" onclick="closeWaQueue()">Funga</button>
       </div>`;
@@ -811,9 +811,10 @@ function renderWaQueueStep(){
   const preview = rec.message.length > 200 ? rec.message.slice(0, 200) + '...' : rec.message;
   const waSentCls = _waQueueWaSent ? ' sent' : '';
   const smsSentCls = _waQueueSmsSent ? ' sent' : '';
-  const waLabel = _waQueueWaSent ? '✅ WhatsApp' : '💬 WhatsApp';
-  const smsLabel = _waQueueSmsSent ? '✅ SMS' : '📩 SMS';
+  const waLabel  = _waQueueWaSent  ? '✅ WhatsApp Imetumwa' : '💬 Tuma WhatsApp';
+  const smsLabel = _waQueueSmsSent ? '✅ SMS Imetumwa'     : '📩 Tuma SMS';
   const bothSent = _waQueueWaSent && _waQueueSmsSent;
+  const anySent  = _waQueueWaSent || _waQueueSmsSent;
 
   el.innerHTML = `
     <div class="wa-queue-header">
@@ -824,23 +825,35 @@ function renderWaQueueStep(){
     <div class="wa-queue-name">${escapeHtml(rec.name || 'Mwanachama')}</div>
     <div class="wa-queue-phone">📞 ${escapeHtml(rec.phone)}</div>
     <div class="wa-queue-msg-preview">${escapeHtml(preview)}</div>
-    <div class="wa-channel-row">
+
+    <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;">Chagua Njia ya Kutuma:</div>
+
+    <div class="wa-channel-row" style="flex-direction:column;gap:8px;">
       <a href="${escapeHtml(buildWaUrl(rec.phone, rec.message))}"
+         target="_blank" rel="noopener"
          onclick="onChannelClick('wa')"
-         class="wa-send-btn${waSentCls}">
-        <span>${waLabel}</span>
+         class="wa-send-btn${waSentCls}" style="display:flex;align-items:center;gap:10px;justify-content:center;">
+        <span>💬</span><span>${waLabel}</span>
       </a>
       <a href="${escapeHtml(buildSmsUrl(rec.phone, rec.message))}"
          onclick="onChannelClick('sms')"
-         class="sms-send-btn${smsSentCls}">
-        <span>${smsLabel}</span>
+         class="sms-send-btn${smsSentCls}" style="display:flex;align-items:center;gap:10px;justify-content:center;">
+        <span>📩</span><span>${smsLabel}</span>
       </a>
+      <button onclick="sendBothWaAndSms()" 
+        style="display:flex;align-items:center;gap:10px;justify-content:center;width:100%;padding:13px;border-radius:10px;border:none;background:${bothSent?'#16a34a':'#7c3aed'};color:#fff;font-size:14px;font-weight:700;cursor:pointer;">
+        <span>⚡</span><span>${bothSent ? '✅ Zote Zimetumwa' : 'Tuma WhatsApp + SMS (Zote Mbili)'}</span>
+      </button>
     </div>
-    <div class="wa-queue-actions">
+
+    <div class="wa-queue-actions" style="margin-top:14px;">
       <button class="wa-skip-btn" onclick="skipWaQueueItem()">Ruka ↩</button>
-      <button class="wa-next-btn" onclick="nextWaQueueItem()" ${bothSent ? '' : 'style="opacity:.55"'}>
+      <button class="wa-next-btn" onclick="nextWaQueueItem()" ${anySent ? '' : 'style="opacity:.45;pointer-events:none;"'}>
         Ijayo →
       </button>
+    </div>
+    <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px;">
+      ${bothSent?'✅ Zote mbili zimetumwa':_waQueueWaSent?'WhatsApp ✅ · SMS bado':_waQueueSmsSent?'SMS ✅ · WhatsApp bado':'Bonyeza njia moja au zote mbili'}
     </div>`;
 }
 
@@ -848,6 +861,21 @@ function onChannelClick(channel){
   if(channel === 'wa') _waQueueWaSent = true;
   if(channel === 'sms') _waQueueSmsSent = true;
   setTimeout(renderWaQueueStep, 400);
+}
+
+function sendBothWaAndSms(){
+  const rec = _waQueue[_waQueueIndex];
+  if(!rec) return;
+  // Open WhatsApp first
+  window.open(buildWaUrl(rec.phone, rec.message), '_blank');
+  _waQueueWaSent = true;
+  // Open SMS after short delay so both open
+  setTimeout(()=>{
+    window.location.href = buildSmsUrl(rec.phone, rec.message);
+    _waQueueSmsSent = true;
+    setTimeout(renderWaQueueStep, 600);
+  }, 800);
+  renderWaQueueStep();
 }
 
 function nextWaQueueItem(){
@@ -1800,23 +1828,127 @@ async function kataaMabadiliko(updateId){
 }
 
 // ════════════════════════════════════════════════════════════
-// FEATURE 2: DOWNLOAD ALL MEMBERS WITH DEPENDANTS
+// FEATURE 2: DOWNLOAD ALL MEMBERS WITH DEPENDANTS (CSV + PDF)
 // ════════════════════════════════════════════════════════════
-function downloadWanachamaWategemezi(){
+function getMemberRows(){
   const approved=allWanachama.filter(m=>m.status==='approved');
-  const rows=[];
-  rows.push(['#','Jina Kamili','Namba ya Simu','Salio (TZS)','Jumla Michango','Jumla Faini','Tarehe ya Malipo ya Mwisho','Tegemezi (Uhusiano - Jina)'].join(','));
-  approved.forEach((m,i)=>{
+  return approved.map((m,i)=>{
     const teg=allTegemezi.filter(t=>t.mwanachama_id===m.id);
     const tegStr=teg.map(t=>`${t.uhusiano}: ${t.jina_kamili}`).join(' | ');
-    rows.push([i+1,`"${(m.jina_kamili||'').replace(/"/g,'""')}"`,m.namba_simu||'',Number(m.salio||0),Number(m.jumla_michango||0),Number(m.total_fines||0),m.last_payment_date||'',`"${tegStr.replace(/"/g,'""')}"`].join(','));
+    // Force phone as text string to avoid scientific notation in Excel
+    const phone = String(m.namba_simu||'').replace(/\D/g,'');
+    return {
+      no: i+1,
+      jina: m.jina_kamili||'',
+      simu: phone,
+      salio: Number(m.salio||0),
+      michango: Number(m.jumla_michango||0),
+      faini: Number(m.total_fines||0),
+      malipo_date: m.last_payment_date||'',
+      tegemezi: tegStr
+    };
   });
-  const csv=rows.join('\n');
+}
+
+function downloadWanachamaCSV(){
+  const rows = getMemberRows();
+  const headers = ['#','Jina Kamili','Namba ya Simu','Salio (TZS)','Jumla Michango','Jumla Faini','Tarehe ya Malipo ya Mwisho','Tegemezi (Uhusiano - Jina)'];
+  const lines = [headers.join(',')];
+  rows.forEach(r=>{
+    // Prefix phone with = to force Excel to treat as text: ="255..."
+    lines.push([
+      r.no,
+      `"${r.jina.replace(/"/g,'""')}"`,
+      `"='${r.simu}'"`,  // Excel text formula trick to prevent scientific notation
+      r.salio,
+      r.michango,
+      r.faini,
+      r.malipo_date,
+      `"${r.tegemezi.replace(/"/g,'""')}"`
+    ].join(','));
+  });
+  const csv=lines.join('\n');
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a'); a.href=url; a.download=`wanachama_wategemezi_ngara_yachu_${leoISO()}.csv`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-  toast('Orodha ya wanachama na wategemezi imedownloadiwa');
+  toast('CSV imedownloadiwa');
+}
+
+function downloadWanachamaPDF(){
+  const rows = getMemberRows();
+  const tarehe = new Date().toLocaleDateString('sw-TZ',{year:'numeric',month:'long',day:'numeric'});
+  // Build HTML for print-to-PDF
+  const tableRows = rows.map(r=>`
+    <tr>
+      <td>${r.no}</td>
+      <td>${r.jina}</td>
+      <td style="white-space:nowrap;">${r.simu}</td>
+      <td style="text-align:right;">${Number(r.salio).toLocaleString()}</td>
+      <td style="text-align:right;">${Number(r.michango).toLocaleString()}</td>
+      <td style="text-align:right;">${Number(r.faini).toLocaleString()}</td>
+      <td>${r.malipo_date||'—'}</td>
+      <td style="font-size:11px;">${r.tegemezi||'—'}</td>
+    </tr>`).join('');
+
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <title>Orodha ya Wanachama - Ngara Yachu</title>
+  <style>
+    body{font-family:Arial,sans-serif;font-size:12px;margin:20px;color:#111;}
+    h2{text-align:center;color:#1a56db;margin-bottom:4px;}
+    .sub{text-align:center;color:#555;font-size:11px;margin-bottom:16px;}
+    table{width:100%;border-collapse:collapse;font-size:11px;}
+    th{background:#1a56db;color:#fff;padding:7px 6px;text-align:left;font-size:11px;}
+    td{padding:6px;border-bottom:1px solid #e5e7eb;vertical-align:top;}
+    tr:nth-child(even){background:#f8fafc;}
+    .footer{margin-top:16px;text-align:center;font-size:10px;color:#888;}
+    @media print{body{margin:10px;}button{display:none;}}
+  </style></head><body>
+  <h2>🌿 NGARA YACHU</h2>
+  <div class="sub">Orodha ya Wanachama na Wategemezi · Tarehe: ${tarehe} · Jumla: ${rows.length}</div>
+  <table>
+    <thead><tr>
+      <th>#</th><th>Jina Kamili</th><th>Namba ya Simu</th>
+      <th>Salio (TZS)</th><th>Michango</th><th>Faini</th>
+      <th>Malipo ya Mwisho</th><th>Tegemezi (Uhusiano - Jina)</th>
+    </tr></thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+  <div class="footer">Imetolewa na Mfumo wa Ngara Yachu · ${tarehe}</div>
+  <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`;
+
+  const blob=new Blob([html],{type:'text/html;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const win=window.open(url,'_blank');
+  if(!win) toast('Ruhusu popup kwenye browser yako ili upate PDF');
+  else toast('Ukurasa wa kuchapisha umefunguliwa — chagua "Save as PDF"');
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+}
+
+function downloadWanachamaWategemezi(){
+  // Show format chooser
+  const existing = document.getElementById('download-format-chooser');
+  if(existing){ existing.remove(); return; }
+  const div = document.createElement('div');
+  div.id = 'download-format-chooser';
+  div.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.18);padding:28px 24px;z-index:9999;min-width:280px;text-align:center;';
+  div.innerHTML=`
+    <div style="font-weight:800;font-size:16px;margin-bottom:6px;">📥 Chagua Muundo wa Download</div>
+    <div style="font-size:13px;color:#666;margin-bottom:20px;">Wanachama ${allWanachama.filter(m=>m.status==='approved').length} walioidhinishwa</div>
+    <button onclick="downloadWanachamaCSV();document.getElementById('download-format-chooser').remove();"
+      style="width:100%;margin-bottom:10px;padding:12px;border-radius:10px;border:none;background:#16a34a;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">
+      📊 CSV (Excel / Spreadsheet)
+    </button>
+    <button onclick="downloadWanachamaPDF();document.getElementById('download-format-chooser').remove();"
+      style="width:100%;margin-bottom:10px;padding:12px;border-radius:10px;border:none;background:#dc2626;color:#fff;font-size:14px;font-weight:700;cursor:pointer;">
+      📄 PDF (Chapisha / Hifadhi)
+    </button>
+    <button onclick="document.getElementById('download-format-chooser').remove();"
+      style="width:100%;padding:10px;border-radius:10px;border:1px solid #ddd;background:#f9fafb;color:#555;font-size:13px;cursor:pointer;">
+      ✕ Funga
+    </button>`;
+  document.body.appendChild(div);
 }
 
 function wasilianaNaMwanachama(memberId){
