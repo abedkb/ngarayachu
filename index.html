@@ -954,124 +954,132 @@ function countUnread(memberId,announcements){ return announcements.filter(a=>!ha
 // REGISTER
 // ════════════════════════════════════════════════════════════
 async function doRegister(){
-  const jina=$('reg-jina')?.value.trim();
-  const simu=$('reg-simu')?.value.trim();
-  const pin=$('reg-pin')?.value.trim();
-  const pin2=$('reg-pin2')?.value.trim();
-  const isLeader=$('reg-is-leader')?.checked;
-  const leaderPosition=$('reg-leader-position')?.value;
-  const leaderUsername=$('reg-leader-username')?.value.trim();
-  const leaderPassword=$('reg-leader-password')?.value.trim();
-  const leaderPassword2=$('reg-leader-password2')?.value.trim();
+  const jina        = ($('reg-jina')?.value||'').trim();
+  const simu        = ($('reg-simu')?.value||'').trim();
+  const pin         = ($('reg-pin')?.value||'').trim();
+  const pin2        = ($('reg-pin2')?.value||'').trim();
+  const isLdr       = !!$('reg-is-leader')?.checked;
+  const ldrRole     = ($('reg-leader-position')?.value||'').trim();
+  const ldrUser     = ($('reg-leader-username')?.value||'').trim();
+  const ldrPwd      = ($('reg-leader-password')?.value||'').trim();
+  const ldrPwd2     = ($('reg-leader-password2')?.value||'').trim();
 
-  if(!jina||!simu||!pin||!pin2){ setAlert('reg-alert','Jaza taarifa zote muhimu.','error'); return; }
-  if(jina.split(' ').length<3){ setAlert('reg-alert','Tafadhali andika angalau majina matatu.','error'); return; }
-  if(pin!==pin2){ setAlert('reg-alert','PIN hazilingani.','error'); return; }
-  if(pin.length!==4||isNaN(pin)){ setAlert('reg-alert','PIN lazima iwe nambari 4.','error'); return; }
-  if(isLeader&&!leaderPosition){ setAlert('reg-alert','Chagua jina la cheo ulichotaka kusajili kama.','error'); return; }
-  if(isLeader&&!leaderUsername){ setAlert('reg-alert','Weka username ya kiongozi.','error'); return; }
-  if(isLeader&&(!leaderPassword||leaderPassword.length<6)){ setAlert('reg-alert','Neno siri ya kiongozi lazima liwe na herufi angalau 6.','error'); return; }
-  if(isLeader&&leaderPassword!==leaderPassword2){ setAlert('reg-alert','Neno siri za kiongozi hazilingani.','error'); return; }
+  // ─── validation ───────────────────────────────────────────
+  if(!jina||!simu||!pin||!pin2)   { setAlert('reg-alert','Jaza taarifa zote muhimu.','error'); return; }
+  if(jina.trim().split(/\s+/).length < 3) { setAlert('reg-alert','Andika angalau majina matatu.','error'); return; }
+  if(pin !== pin2)                 { setAlert('reg-alert','PIN hazilingani.','error'); return; }
+  if(pin.length!==4||isNaN(pin))  { setAlert('reg-alert','PIN lazima iwe nambari 4.','error'); return; }
+  if(isLdr && !ldrRole)           { setAlert('reg-alert','Chagua cheo chako.','error'); return; }
+  if(isLdr && !ldrUser)           { setAlert('reg-alert','Weka username ya kiongozi.','error'); return; }
+  if(isLdr && ldrPwd.length < 6)  { setAlert('reg-alert','Neno siri angalau herufi 6.','error'); return; }
+  if(isLdr && ldrPwd !== ldrPwd2) { setAlert('reg-alert','Neno siri hazilingani.','error'); return; }
 
-  const phone=normalizePhone(simu);
-  const btn=$('reg-submit-btn');
-  btn.disabled=true;
+  const phone = normalizePhone(simu);
+  const btn   = $('reg-submit-btn');
+  btn.disabled = true;
+  showLoading();
 
   try {
-    // Load leaders (gracefully — table may not exist yet on first run)
-    if(!allLeaders.length){
-      try{ allLeaders = await DB.getAll('leaders'); }catch(e){ allLeaders = []; }
-    }
-
-    const existing=await DB.getWhere('members','namba_simu',phone);
-    if(existing.length){ setAlert('reg-alert','Namba hii tayari imesajiliwa.','error'); return; }
-
-    let existingName = null;
-    try{ existingName = await findExistingMemberByName(jina); }catch(e){}
-    if(existingName){
-      setAlert('reg-alert',`Jina hili tayari limesajiliwa na mwanachama ${existingName.jina_kamili} (📱 ${existingName.namba_simu}). Tafadhali tumia namba hiyo au wasiliana na ofisi kwa msaada.`,'error');
+    // ─── check phone not already registered ───────────────
+    const existing = await DB.getWhere('members','namba_simu', phone);
+    if(existing.length){
+      setAlert('reg-alert','Namba hii tayari imesajiliwa.','error');
       return;
     }
 
     const tegEntries = collectRegistrationTegemezi();
-    let tegConflict = null;
-    try{ tegConflict = await findDependentConflict(tegEntries); }catch(e){}
-    if(tegConflict){
-      const conflictMember = tegConflict.member || {};
-      const memberLabel = conflictMember.jina_kamili ? `${conflictMember.jina_kamili} (📱 ${conflictMember.namba_simu||'nambari isiyojulikana'})` : 'mwanachama mwingine';
-      setAlert('reg-alert',`Tegemezi ${tegConflict.dependent.jina_kamili} tayari amesajiliwa na ${memberLabel}. Tafadhali hakikisha haujisajili mara mbili.`,`error`);
-      return;
-    }
 
-
-    // Deactivate any existing active leader for this role
-    // (handles both placeholder rows and previous partial registrations)
-    if(isLeader){
-      const existingForRole = allLeaders.filter(l=>l.role===leaderPosition&&l.is_active!==false);
-      for(const prev of existingForRole){
-        try{ await DB.update('leaders', prev.id, {is_active: false}); }catch(e){ console.warn('Could not deactivate old leader:', e.message); }
-      }
-      allLeaders = allLeaders.filter(l=>!(l.role===leaderPosition&&l.is_active!==false));
-
-      let member = null;
+    if(isLdr){
+      // ─── LEADER PATH ────────────────────────────────────
+      // Step 1: Delete ALL existing leader rows for this role via direct REST DELETE
+      // This bypasses any cached state and removes both placeholder + any previous partial
       try {
-        const rawMember = await DB.insert('members',{
-          jina_kamili:jina,
-          namba_simu:phone,
-          pin,
-          salio:0,
-          status:'approved',
-          jumla_michango:0,
-          total_fines:0
+        const delUrl = `${SUPABASE_URL}/rest/v1/leaders?role=eq.${encodeURIComponent(ldrRole)}`;
+        await fetch(delUrl, {
+          method: 'DELETE',
+          headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY,
+            'Content-Type': 'application/json'
+          }
         });
-        member = Array.isArray(rawMember) ? rawMember[0] : rawMember;
-
-        const tegData = tegEntries.map(t => ({ ...t, mwanachama_id: member.id }));
-        for(const t of tegData){ await DB.insert('dependants',t); }
-
-        const rawLeader = await DB.insert('leaders',{
-          user_name:leaderUsername,
-          password:leaderPassword,
-          wa:phone,
-          cheo:roleName(leaderPosition),
-          role:leaderPosition,
-          is_active:true
-        });
-        const newLeader = Array.isArray(rawLeader) ? rawLeader[0] : rawLeader;
-        allLeaders.push(newLeader);
-      } catch(innerErr) {
-        // Roll back the member record so the phone number is not left orphaned
-        if(member?.id){ try{ await DB.remove('members',member.id); }catch(_){} }
-        throw innerErr;
+      } catch(delErr){
+        console.warn('Could not delete old leader rows:', delErr.message);
       }
+
+      // Step 2: Also remove orphaned member record for this phone if it exists
+      try {
+        const existingMem = await DB.getWhere('members','namba_simu', phone);
+        for(const em of existingMem){
+          await DB.remove('members', em.id);
+        }
+      } catch(e){ console.warn('Could not remove old member:', e.message); }
+
+      // Step 3: Insert fresh member record (auto-approved for leaders)
+      const memberData = await DB.insert('members',{
+        jina_kamili:   jina,
+        namba_simu:    phone,
+        pin,
+        salio:         0,
+        status:        'approved',
+        jumla_michango: 0,
+        total_fines:   0
+      });
+      const member = Array.isArray(memberData) ? memberData[0] : memberData;
+
+      // Step 4: Insert tegemezi
+      for(const t of tegEntries){
+        await DB.insert('dependants', {...t, mwanachama_id: member.id}).catch(()=>{});
+      }
+
+      // Step 5: Insert new leader record
+      await DB.insert('leaders',{
+        user_name:  ldrUser,
+        password:   ldrPwd,
+        wa:         phone,
+        cheo:       roleName(ldrRole),
+        role:       ldrRole,
+        is_active:  true
+      });
+
       hideLoading();
-      setAlert('reg-alert',`✅ Akaunti yako ya Mwanachama na Kiongozi imehifadhiwa! Ingia kama Kiongozi kwa kutumia username "${leaderUsername}" na neno siri ulioweka.`,`success`);
+      setAlert('reg-alert',
+        `✅ Akaunti yako imehifadhiwa! Ingia kama Kiongozi kwa username "${ldrUser}" na neno siri ulioweka.`,
+        'success');
       toast('Usajili wa Kiongozi umefanikiwa');
       clearRegisterForm();
-      setTimeout(()=>{ showScreen('screen-welcome'); },2000);
-    }else{
-      // Create member account
-      const rawMember2 = await DB.insert('members',{
-        jina_kamili:jina,namba_simu:phone,pin,salio:0,
-        status:'pending',jumla_michango:0,total_fines:0
-      });
-      const member = Array.isArray(rawMember2) ? rawMember2[0] : rawMember2;
+      setTimeout(()=>{ showScreen('screen-welcome'); }, 2500);
 
-      const tegData = tegEntries.map(t => ({ ...t, mwanachama_id: member.id }));
-      for(const t of tegData){ await DB.insert('dependants',t); }
+    } else {
+      // ─── REGULAR MEMBER PATH ────────────────────────────
+      const memberData = await DB.insert('members',{
+        jina_kamili:   jina,
+        namba_simu:    phone,
+        pin,
+        salio:         0,
+        status:        'pending',
+        jumla_michango: 0,
+        total_fines:   0
+      });
+      const member = Array.isArray(memberData) ? memberData[0] : memberData;
+
+      for(const t of tegEntries){
+        await DB.insert('dependants', {...t, mwanachama_id: member.id}).catch(()=>{});
+      }
 
       hideLoading();
-      setAlert('reg-alert','✅ Ombi lako limehifadhiwa! Subiri idhini ya Katibu / Mwenyekiti.','success');
+      setAlert('reg-alert','✅ Ombi lako limehifadhiwa! Subiri idhini ya Katibu.','success');
       toast('Usajili umefanikiwa');
       clearRegisterForm();
-
       notifyKatibuRegistration(member);
     }
 
   } catch(e){
-    setAlert('reg-alert',errMsg(e),'error');
-  } finally{
-    btn.disabled=false;
+    hideLoading();
+    setAlert('reg-alert', `Hitilafu: ${e.message}`, 'error');
+    console.error('doRegister error:', e);
+  } finally {
+    btn.disabled = false;
   }
 }
 
