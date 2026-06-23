@@ -750,7 +750,7 @@ function isDefaultLeaderRecord(leader){
   const role=(leader.role||'').trim().toLowerCase();
   const displayRole=roleName(role).toLowerCase();
   const password=(leader.password||'').trim().toLowerCase();
-  const defaultPasswords=['0000','1234','12345','password','katibu','mweka hazina','mwenyekiti'];
+  const defaultPasswords=['0000','1234','12345','password','katibu','mweka hazina','mwenyekiti','siliba03','siliba04','siliba05'];
   return leader.is_active!==false && (
     !name ||
     name===role ||
