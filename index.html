@@ -1003,20 +1003,16 @@ async function doRegister(){
       return;
     }
 
-    // Check if trying to register as leader
+
+    // Deactivate any existing active leader for this role
+    // (handles both placeholder rows and previous partial registrations)
     if(isLeader){
-      const placeholderLeader=allLeaders.find(l=>l.role===leaderPosition&&l.is_active!==false&&isDefaultLeaderRecord(l));
-      if(placeholderLeader){
-        await DB.update('leaders',placeholderLeader.id,{is_active:false});
-        allLeaders = allLeaders.filter(l=>l.id!==placeholderLeader.id);
+      const existingForRole = allLeaders.filter(l=>l.role===leaderPosition&&l.is_active!==false);
+      for(const prev of existingForRole){
+        try{ await DB.update('leaders', prev.id, {is_active: false}); }catch(e){ console.warn('Could not deactivate old leader:', e.message); }
       }
-      const existingLeader=allLeaders.find(l=>l.role===leaderPosition&&l.is_active!==false);
-      if(existingLeader){
-        setAlert('reg-alert',`😞 Cheo cha ${roleName(leaderPosition)} tayari kimefunguliwa na ${existingLeader.user_name}. Tafadhali jaribu cheo kingine au usajili kama mwanachama kawaida.`,'error');
-        return;
-      }
-      
-      // Create member account for the leader. If anything fails afterward, clean up.
+      allLeaders = allLeaders.filter(l=>!(l.role===leaderPosition&&l.is_active!==false));
+
       let member = null;
       try {
         const rawMember = await DB.insert('members',{
