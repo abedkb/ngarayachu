@@ -895,11 +895,35 @@ function sendLeaderWaDirect(role, message){
 // SUPABASE DB HELPERS
 // ════════════════════════════════════════════════════════════
 const DB = {
-  async getAll(table){ const {data,error}=await sb.from(table).select('*'); if(error)throw error; return data||[]; },
-  async getWhere(table,col,val){ const {data,error}=await sb.from(table).select('*').eq(col,val); if(error)throw error; return data||[]; },
-  async insert(table,row){ const {data,error}=await sb.from(table).insert(row); if(error)throw error; return data; },
-  async update(table,id,payload){ const {error}=await sb.from(table).eq('id',id).update(payload); if(error)throw error; return true; },
-  async remove(table,id){ const {error}=await sb.from(table).eq('id',id).delete(); if(error)throw error; return true; }
+  async getAll(table){
+    try{
+      const {data,error}=await sb.from(table).select('*');
+      if(error){ console.warn('DB.getAll',table,error.message||error.code||JSON.stringify(error)); return []; }
+      return data||[];
+    }catch(e){ console.warn('DB.getAll catch',table,e.message); return []; }
+  },
+  async getWhere(table,col,val){
+    try{
+      const {data,error}=await sb.from(table).select('*').eq(col,val);
+      if(error){ console.warn('DB.getWhere',table,error.message||error.code||JSON.stringify(error)); return []; }
+      return data||[];
+    }catch(e){ console.warn('DB.getWhere catch',table,e.message); return []; }
+  },
+  async insert(table,row){
+    const {data,error}=await sb.from(table).insert(row);
+    if(error) throw new Error(error.message||error.hint||error.code||JSON.stringify(error));
+    return Array.isArray(data)?data[0]:(data||null);
+  },
+  async update(table,id,payload){
+    const {error}=await sb.from(table).eq('id',id).update(payload);
+    if(error) throw new Error(error.message||error.hint||error.code||JSON.stringify(error));
+    return true;
+  },
+  async remove(table,id){
+    const {error}=await sb.from(table).eq('id',id).delete();
+    if(error) throw new Error(error.message||error.hint||error.code||JSON.stringify(error));
+    return true;
+  }
 };
 
 // ════════════════════════════════════════════════════════════
@@ -954,19 +978,24 @@ async function doRegister(){
   btn.disabled=true;
 
   try {
-    if(!allLeaders.length) allLeaders = await DB.getAll('leaders');
+    // Load leaders (gracefully — table may not exist yet on first run)
+    if(!allLeaders.length){
+      try{ allLeaders = await DB.getAll('leaders'); }catch(e){ allLeaders = []; }
+    }
 
     const existing=await DB.getWhere('members','namba_simu',phone);
     if(existing.length){ setAlert('reg-alert','Namba hii tayari imesajiliwa.','error'); return; }
 
-    const existingName = await findExistingMemberByName(jina);
+    let existingName = null;
+    try{ existingName = await findExistingMemberByName(jina); }catch(e){}
     if(existingName){
       setAlert('reg-alert',`Jina hili tayari limesajiliwa na mwanachama ${existingName.jina_kamili} (📱 ${existingName.namba_simu}). Tafadhali tumia namba hiyo au wasiliana na ofisi kwa msaada.`,'error');
       return;
     }
 
     const tegEntries = collectRegistrationTegemezi();
-    const tegConflict = await findDependentConflict(tegEntries);
+    let tegConflict = null;
+    try{ tegConflict = await findDependentConflict(tegEntries); }catch(e){}
     if(tegConflict){
       const conflictMember = tegConflict.member || {};
       const memberLabel = conflictMember.jina_kamili ? `${conflictMember.jina_kamili} (📱 ${conflictMember.namba_simu||'nambari isiyojulikana'})` : 'mwanachama mwingine';
@@ -990,7 +1019,7 @@ async function doRegister(){
       // Create member account for the leader. If anything fails afterward, clean up.
       let member = null;
       try {
-        member=await DB.insert('members',{
+        const rawMember = await DB.insert('members',{
           jina_kamili:jina,
           namba_simu:phone,
           pin,
@@ -999,11 +1028,12 @@ async function doRegister(){
           jumla_michango:0,
           total_fines:0
         });
+        member = Array.isArray(rawMember) ? rawMember[0] : rawMember;
 
         const tegData = tegEntries.map(t => ({ ...t, mwanachama_id: member.id }));
         for(const t of tegData){ await DB.insert('dependants',t); }
 
-        const newLeader=await DB.insert('leaders',{
+        const rawLeader = await DB.insert('leaders',{
           user_name:leaderUsername,
           password:leaderPassword,
           wa:phone,
@@ -1011,6 +1041,7 @@ async function doRegister(){
           role:leaderPosition,
           is_active:true
         });
+        const newLeader = Array.isArray(rawLeader) ? rawLeader[0] : rawLeader;
         allLeaders.push(newLeader);
       } catch(innerErr) {
         // Roll back the member record so the phone number is not left orphaned
@@ -1024,10 +1055,11 @@ async function doRegister(){
       setTimeout(()=>{ showScreen('screen-welcome'); },2000);
     }else{
       // Create member account
-      const member=await DB.insert('members',{
+      const rawMember2 = await DB.insert('members',{
         jina_kamili:jina,namba_simu:phone,pin,salio:0,
         status:'pending',jumla_michango:0,total_fines:0
       });
+      const member = Array.isArray(rawMember2) ? rawMember2[0] : rawMember2;
 
       const tegData = tegEntries.map(t => ({ ...t, mwanachama_id: member.id }));
       for(const t of tegData){ await DB.insert('dependants',t); }
@@ -1136,7 +1168,8 @@ async function doLogin(mode){
   const phone = normalizePhone(simu);
   btn.disabled=true;
   try {
-    const leaderRows = await DB.getAll('leaders');
+    let leaderRows = [];
+    try{ leaderRows = await DB.getAll('leaders'); }catch(e){ leaderRows = []; }
     let leader = null;
 
     if(isLeaderMode){
@@ -1188,7 +1221,7 @@ async function doLogin(mode){
       const sameMember=await DB.getWhere('members','namba_simu',normalizePhone(currentLeader.wa||''));
       if(sameMember.length){ currentUser=sameMember[0]; }
       else {
-        currentUser=await DB.insert('members',{
+        const createdMember = await DB.insert('members',{
           jina_kamili: currentLeader.user_name || roleName(currentLeader.role),
           namba_simu: normalizePhone(currentLeader.wa||''),
           pin: password,
@@ -1197,6 +1230,7 @@ async function doLogin(mode){
           jumla_michango:0,
           total_fines:0
         });
+        currentUser = Array.isArray(createdMember) ? createdMember[0] : createdMember;
       }
       $('leader-role-display').textContent=currentLeader.cheo;
       $('leader-name-display').textContent=currentLeader.user_name;
