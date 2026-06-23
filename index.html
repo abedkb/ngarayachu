@@ -630,18 +630,24 @@ const sb = (() => {
 // ════════════════════════════════════════════════════════════
 // CONFIG
 // ════════════════════════════════════════════════════════════
-const WA_MWENYEKITI  = '255784784370';
-const WA_KATIBU      = '255765320984';
-const WA_MWEKAHAZINA = '255757213022';
+// Leader phone numbers (used for Beem SMS)
+const PHONE_MWENYEKITI  = '255787547107';
+const PHONE_KATIBU      = '255695541568';
+const PHONE_MWEKAHAZINA = '255755863325';
+
+// Beem Africa SMS credentials
+const BEEM_API_KEY    = 'd48a47f944b0d0d5';
+const BEEM_SECRET_KEY = 'YzRiZGI3MzJiNzI0N2VmNTJmZjA0MzVkOGQwNmJlNDk2M2NkM2U5Mzk2M2VkZTgwN2ZiMWMwYmQ5NmZhNg==';
+const BEEM_SENDER_ID  = 'ABEDCARDS'; // Will change to NGARA YACHU once registered
 
 const MIN_SALIO = 30000;
 const FAINI     = 15000;
 const MSAADA    = 2000000;
 
 const DEFAULT_LEADER_CREDENTIALS = {
-  chairperson: { password: 'mugi@2026' },
-  secretary:   { password: 'javasengati20!' },
-  treasurer:   { password: 'mk14ngaraboy' }
+  chairperson: { password: 'Siliba03' },
+  secretary:   { password: 'Siliba05' },
+  treasurer:   { password: 'Siliba04' }
 };
 
 function getDefaultLeaderCredentials(role){
@@ -759,242 +765,130 @@ function priorityIcon(p='normal'){ if(p==='urgent')return'🔴'; if(p==='info')r
 function priorityLabel(p='normal'){ if(p==='urgent')return'Haraka'; if(p==='info')return'Taarifa'; return'Kawaida'; }
 
 // ════════════════════════════════════════════════════════════
-// ✅ MOBILE-SAFE WHATSAPP ENGINE
+// ✅ BEEM AFRICA SMS ENGINE (Sender Name flow)
 // ════════════════════════════════════════════════════════════
-let _waQueue = [];
-let _waQueueIndex = 0;
-let _waQueueDoneCallback = null;
-let _waQueueWaSent = false;
-let _waQueueSmsSent = false;
-
-function buildWaUrl(phone, message){
-  const p = normalizePhone(phone);
-  return `https://wa.me/${p}?text=${encodeURIComponent(message)}`;
-}
-
-function buildSmsUrl(phone, message){
-  const p = normalizePhone(phone);
-  return `sms:+${p}?body=${encodeURIComponent(message)}`;
-}
-
-function openWaQueue(recipients, onDone){
-  if(!recipients || !recipients.length){
-    if(onDone) onDone();
-    return;
-  }
-  _waQueue = recipients.filter(r => r && r.phone);
-  _waQueueIndex = 0;
-  _waQueueDoneCallback = onDone || null;
-  renderWaQueueStep();
-  $('wa-queue-modal').classList.add('open');
-}
-
-function renderWaQueueStep(){
-  const total = _waQueue.length;
-  const el = $('wa-queue-content');
-  if(!el) return;
-
-  if(_waQueueIndex >= total){
-    el.innerHTML = `
-      <div class="wa-done-box">
-        <div class="wa-done-icon">✅</div>
-        <div class="wa-done-title">Ujumbe Umetumwa Wote!</div>
-        <div class="wa-done-sub">Ujumbe umetumwa kwa watu ${total} kwa njia uliyochagua (WhatsApp, SMS, au zote mbili).</div>
-        <br>
-        <button class="btn btn-primary" style="width:100%;" onclick="closeWaQueue()">Funga</button>
-      </div>`;
-    return;
-  }
-
-  const rec = _waQueue[_waQueueIndex];
-  const pct = Math.round((_waQueueIndex / total) * 100);
-  const preview = rec.message.length > 200 ? rec.message.slice(0, 200) + '...' : rec.message;
-  const waSentCls = _waQueueWaSent ? ' sent' : '';
-  const smsSentCls = _waQueueSmsSent ? ' sent' : '';
-  const waLabel  = _waQueueWaSent  ? '✅ WhatsApp Imetumwa' : '💬 Tuma WhatsApp';
-  const smsLabel = _waQueueSmsSent ? '✅ SMS Imetumwa'     : '📩 Tuma SMS';
-  const bothSent = _waQueueWaSent && _waQueueSmsSent;
-  const anySent  = _waQueueWaSent || _waQueueSmsSent;
-
-  el.innerHTML = `
-    <div class="wa-queue-header">
-      <div class="wa-queue-title">📱 Tuma Ujumbe</div>
-      <div class="wa-queue-progress">${_waQueueIndex + 1} / ${total}</div>
-    </div>
-    <div class="wa-queue-bar"><div class="wa-queue-fill" style="width:${pct}%"></div></div>
-    <div class="wa-queue-name">${escapeHtml(rec.name || 'Mwanachama')}</div>
-    <div class="wa-queue-phone">📞 ${escapeHtml(rec.phone)}</div>
-    <div class="wa-queue-msg-preview">${escapeHtml(preview)}</div>
-
-    <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;">Chagua Njia ya Kutuma:</div>
-
-    <div class="wa-channel-row" style="flex-direction:column;gap:8px;">
-      <a href="${escapeHtml(buildWaUrl(rec.phone, rec.message))}"
-         target="_blank" rel="noopener"
-         onclick="onChannelClick('wa')"
-         class="wa-send-btn${waSentCls}" style="display:flex;align-items:center;gap:10px;justify-content:center;">
-        <span>💬</span><span>${waLabel}</span>
-      </a>
-      <a href="${escapeHtml(buildSmsUrl(rec.phone, rec.message))}"
-         onclick="onChannelClick('sms')"
-         class="sms-send-btn${smsSentCls}" style="display:flex;align-items:center;gap:10px;justify-content:center;">
-        <span>📩</span><span>${smsLabel}</span>
-      </a>
-      <button onclick="sendBothWaAndSms()" 
-        style="display:flex;align-items:center;gap:10px;justify-content:center;width:100%;padding:13px;border-radius:10px;border:none;background:${bothSent?'#16a34a':'#7c3aed'};color:#fff;font-size:14px;font-weight:700;cursor:pointer;">
-        <span>⚡</span><span>${bothSent ? '✅ Zote Zimetumwa' : 'Tuma WhatsApp + SMS (Zote Mbili)'}</span>
-      </button>
-    </div>
-
-    <div class="wa-queue-actions" style="margin-top:14px;">
-      <button class="wa-skip-btn" onclick="skipWaQueueItem()">Ruka ↩</button>
-      <button class="wa-next-btn" onclick="nextWaQueueItem()" ${anySent ? '' : 'style="opacity:.45;pointer-events:none;"'}>
-        Ijayo →
-      </button>
-    </div>
-    <div style="text-align:center;font-size:11px;color:var(--muted);margin-top:10px;">
-      ${bothSent?'✅ Zote mbili zimetumwa':_waQueueWaSent?'WhatsApp ✅ · SMS bado':_waQueueSmsSent?'SMS ✅ · WhatsApp bado':'Bonyeza njia moja au zote mbili'}
-    </div>`;
-}
-
-function onChannelClick(channel){
-  if(channel === 'wa') _waQueueWaSent = true;
-  if(channel === 'sms') _waQueueSmsSent = true;
-  setTimeout(renderWaQueueStep, 400);
-}
-
-function sendBothWaAndSms(){
-  const rec = _waQueue[_waQueueIndex];
-  if(!rec) return;
-  // Open WhatsApp first
-  window.open(buildWaUrl(rec.phone, rec.message), '_blank');
-  _waQueueWaSent = true;
-  // Open SMS after short delay so both open
-  setTimeout(()=>{
-    window.location.href = buildSmsUrl(rec.phone, rec.message);
-    _waQueueSmsSent = true;
-    setTimeout(renderWaQueueStep, 600);
-  }, 800);
-  renderWaQueueStep();
-}
-
-function nextWaQueueItem(){
-  _waQueueIndex++;
-  _waQueueWaSent = false;
-  _waQueueSmsSent = false;
-  renderWaQueueStep();
-}
-
-function skipWaQueueItem(){
-  _waQueueIndex++;
-  _waQueueWaSent = false;
-  _waQueueSmsSent = false;
-  renderWaQueueStep();
-}
-
-function closeWaQueue(){
-  $('wa-queue-modal').classList.remove('open');
-  _waQueue = [];
-  _waQueueIndex = 0;
-  _waQueueWaSent = false;
-  _waQueueSmsSent = false;
-  if(_waQueueDoneCallback){ _waQueueDoneCallback(); _waQueueDoneCallback=null; }
-}
-
-function sendSingleWA(phone, message, name=''){
-  openWaQueue([{phone, name, message}]);
-}
 
 function getLeaderByRole(role){
   return allLeaders.find(l=>l.role===role&&l.is_active!==false)||null;
 }
 
-function sendLeaderWaDirect(role, message){
-  const leader = getLeaderByRole(role);
-  if(!leader || !leader.wa){
-    console.warn('No WA number for role:', role);
-    return;
-  }
-  const url = buildWaUrl(leader.wa, message);
-  window.location.href = url;
+// Normalize phone to Beem format: 255XXXXXXXXX
+function beemPhone(phone){
+  if(!phone) return null;
+  let p = String(phone).replace(/\D/g,'');
+  if(p.startsWith('0')) p = '255' + p.slice(1);
+  if(!p.startsWith('255')) p = '255' + p;
+  return p;
 }
 
+// Strip markdown bold markers for plain SMS
+function stripMarkdown(msg){
+  return msg.replace(/\*/g,'').replace(/_/g,'').trim();
+}
+
+// Core Beem send — supports 1 or many recipients
+async function sendBeemSMS(recipients, message){
+  if(!recipients || !recipients.length) return;
+  const plainMsg = stripMarkdown(message);
+  const dest = recipients
+    .map(r => beemPhone(r.phone||r))
+    .filter(Boolean)
+    .map((p,i) => ({ recipient_id: i+1, dest_addr: p }));
+  if(!dest.length) return;
+  const credentials = btoa(BEEM_API_KEY + ':' + BEEM_SECRET_KEY);
+  try {
+    const res = await fetch('https://apisms.beem.africa/v1/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Basic ' + credentials
+      },
+      body: JSON.stringify({
+        source_addr: BEEM_SENDER_ID,
+        message: plainMsg,
+        recipients: dest
+      })
+    });
+    const data = await res.json();
+    console.log('[BeemSMS] Response:', data);
+    if(data && (data.successful > 0 || data.code === 100)){
+      toast(`📩 SMS imetumwa kwa watu ${dest.length}`);
+    } else {
+      console.warn('[BeemSMS] Unexpected:', data);
+    }
+  } catch(e){
+    console.error('[BeemSMS] Error:', e);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+// NOTIFICATION FUNCTIONS — All go through Beem SMS directly
+// ════════════════════════════════════════════════════════════
+
 function notifyKatibuRegistration(member){
-  const leader = getLeaderByRole('secretary');
-  if(!leader || !leader.wa) return;
-  const msg = `*NGARA YACHU - USAJILI MPYA* ✅\n\nHabari Katibu,\n\nKuna ombi jipya la usajili linalosubiri idhini yako.\n\n👤 *Jina:* ${member.jina_kamili}\n📞 *Simu:* ${member.namba_simu}\n🕐 *Tarehe:* ${new Date().toLocaleString('en-GB')}\n\nTafadhali ingia kwenye mfumo (Viongozi wa Kikundi) ukihakiki na kuidhinisha usajili huu.\n\nAsante.`;
-  openWaQueue([{phone: leader.wa, name: `Katibu — ${leader.user_name || ''}`, message: msg}]);
+  const msg = `NGARA YACHU - USAJILI MPYA\n\nHabari Katibu,\n\nKuna ombi jipya la usajili linalosubiri idhini yako.\n\nJina: ${member.jina_kamili}\nSimu: ${member.namba_simu}\nTarehe: ${new Date().toLocaleString('en-GB')}\n\nTafadhali ingia kwenye mfumo ukihakiki na kuidhinisha.\n\nAsante. - Ngara Yachu`;
+  sendBeemSMS([{phone: PHONE_KATIBU}], msg);
 }
 
 function notifyKatibuMemberUpdate(member, updateSummary){
-  const leader = getLeaderByRole('secretary');
-  if(!leader || !leader.wa) return;
-  const msg = `*NGARA YACHU - OMBI LA KUBADILISHA TAARIFA* 🔄\n\nHabari Katibu,\n\nMwanachama ameomba kubadilisha taarifa zake za wategemezi.\n\n👤 *Jina:* ${member.jina_kamili}\n📞 *Simu:* ${member.namba_simu}\n📋 *Mabadiliko:* ${updateSummary}\n🕐 *Tarehe:* ${new Date().toLocaleString('en-GB')}\n\nTafadhali ingia kwenye mfumo (tab ya Wanachama → Maombi ya Mabadiliko) ukihakiki na kuidhinisha mabadiliko hayo.\n\nAsante.`;
-  openWaQueue([{phone: leader.wa, name: `Katibu — ${leader.user_name || ''}`, message: msg}]);
+  const msg = `NGARA YACHU - MABADILIKO YA TAARIFA\n\nHabari Katibu,\n\nMwanachama ameomba kubadilisha taarifa za wategemezi.\n\nJina: ${member.jina_kamili}\nSimu: ${member.namba_simu}\nMabadiliko: ${updateSummary}\nTarehe: ${new Date().toLocaleString('en-GB')}\n\nTafadhali ingia kwenye mfumo ukihakiki ombi hili.\n\nAsante. - Ngara Yachu`;
+  sendBeemSMS([{phone: PHONE_KATIBU}], msg);
 }
 
 function notifyAllLeadersClaim(member, claim){
-  const katibu = getLeaderByRole('secretary');
-  const mwenyekiti = getLeaderByRole('chairperson');
-  const mwekahazina = getLeaderByRole('treasurer');
-  const baseInfo = `👤 *Mwanachama:* ${member.jina_kamili}\n📞 *Simu:* ${member.namba_simu}\n👪 *Uhusiano:* ${claim.uhusiano}\n💔 *Marehemu:* ${claim.jina_marehemu}\n📅 *Tarehe ya Kifo:* ${claim.tarehe_kifo||'—'}\n💰 *Kiasi:* ${pesa(claim.amount||0)}`;
-  const recipients = [];
-  if(katibu && katibu.wa){
-    const msg = `*NGARA YACHU - OMBI JIPYA LA RAMBIRAMBI* 📋\n\nHabari Katibu,\n\nKuna ombi jipya la rambirambi. Taarifa hii ni kwa ufahamu wako. *Mweka Hazina ndiye atakayeshughulikia ombi hili.*\n\n${baseInfo}\n\nTafadhali fuatilia mchakato kama inahitajika.\n\nNgara Yachu.`;
-    recipients.push({phone: katibu.wa, name: `Katibu — ${katibu.user_name||''}`, message: msg});
-  }
-  if(mwenyekiti && mwenyekiti.wa){
-    const msg = `*NGARA YACHU - OMBI JIPYA LA RAMBIRAMBI* 📋\n\nHabari Mwenyekiti,\n\nKuna ombi jipya la rambirambi. Taarifa hii ni kwa ufahamu wako. *Mweka Hazina ndiye atakayeanza kuhakiki ombi hili.*\n\n${baseInfo}\n\nBaada ya Mweka Hazina kukikabili, utaitwa kutoa idhini ya mwisho.\n\nNgara Yachu.`;
-    recipients.push({phone: mwenyekiti.wa, name: `Mwenyekiti — ${mwenyekiti.user_name||''}`, message: msg});
-  }
-  if(mwekahazina && mwekahazina.wa){
-    const msg = `*NGARA YACHU - OMBI JIPYA LA RAMBIRAMBI* 📋\n\nHabari Mweka Hazina,\n\n*HATUA INAYOHITAJIKA KWAKO:* Ombi jipya la rambirambi linahitaji uhakiki wako.\n\n${baseInfo}\n\nTafadhali ingia kwenye mfumo (Viongozi wa Kikundi → tab ya Rambirambi) na uhakiki ombi hili.\n\nAsante.`;
-    recipients.push({phone: mwekahazina.wa, name: `Mweka Hazina — ${mwekahazina.user_name||''}`, message: msg});
-  }
-  if(recipients.length) openWaQueue(recipients);
+  const baseInfo = `Mwanachama: ${member.jina_kamili}\nSimu: ${member.namba_simu}\nUhusiano: ${claim.uhusiano}\nMarehemu: ${claim.jina_marehemu}\nTarehe ya Kifo: ${claim.tarehe_kifo||'—'}\nKiasi: ${pesa(claim.amount||0)}`;
+  const msgKatibu = `NGARA YACHU - OMBI LA RAMBIRAMBI\n\nHabari Katibu,\n\nKuna ombi jipya la rambirambi. Mweka Hazina ndiye atakayeshughulikia ombi hili.\n\n${baseInfo}\n\nFuatilia mchakato kama inahitajika.\n\nNgara Yachu`;
+  const msgMwenyekiti = `NGARA YACHU - OMBI LA RAMBIRAMBI\n\nHabari Mwenyekiti,\n\nKuna ombi jipya la rambirambi. Mweka Hazina ataanza kukihakiki.\n\n${baseInfo}\n\nBaada ya Mweka Hazina kukikabili, utaitwa kutoa idhini ya mwisho.\n\nNgara Yachu`;
+  const msgMwekahazina = `NGARA YACHU - OMBI LA RAMBIRAMBI\n\nHabari Mweka Hazina,\n\nHATUA INAYOHITAJIKA: Ombi jipya la rambirambi linahitaji uhakiki wako.\n\n${baseInfo}\n\nTafadhali ingia kwenye mfumo ukihakiki ombi hili.\n\nAsante. - Ngara Yachu`;
+  sendBeemSMS([{phone: PHONE_KATIBU}], msgKatibu);
+  sendBeemSMS([{phone: PHONE_MWENYEKITI}], msgMwenyekiti);
+  sendBeemSMS([{phone: PHONE_MWEKAHAZINA}], msgMwekahazina);
 }
 
 function notifyMwekaHazinaClaim(member, claim){
-  const leader = getLeaderByRole('treasurer');
-  if(!leader || !leader.wa) return;
-  const msg = `*NGARA YACHU - OMBI JIPYA LA RAMBIRAMBI* 📋\n\nHabari Mweka Hazina,\n\nKuna ombi jipya la rambirambi linalosubiri uhakiki wako.\n\n👤 *Mwanachama:* ${member.jina_kamili}\n📞 *Simu:* ${member.namba_simu}\n👪 *Uhusiano:* ${claim.uhusiano}\n💔 *Marehemu:* ${claim.jina_marehemu}\n📅 *Tarehe ya Kifo:* ${claim.tarehe_kifo||'—'}\n💰 *Kiasi:* ${pesa(claim.amount||0)}\n\nTafadhali ingia kwenye mfumo kukihakiki.\n\nAsante.`;
-  openWaQueue([{phone: leader.wa, name: `Mweka Hazina — ${leader.user_name||''}`, message: msg}]);
+  const msg = `NGARA YACHU - OMBI LA RAMBIRAMBI\n\nHabari Mweka Hazina,\n\nKuna ombi jipya la rambirambi linalosubiri uhakiki wako.\n\nMwanachama: ${member.jina_kamili}\nSimu: ${member.namba_simu}\nUhusiano: ${claim.uhusiano}\nMarehemu: ${claim.jina_marehemu}\nTarehe ya Kifo: ${claim.tarehe_kifo||'—'}\nKiasi: ${pesa(claim.amount||0)}\n\nTafadhali ingia kwenye mfumo kukihakiki.\n\nAsante. - Ngara Yachu`;
+  sendBeemSMS([{phone: PHONE_MWEKAHAZINA}], msg);
 }
 
 function notifyMwenyekitiFinalApproval(member, claim){
-  const leader = getLeaderByRole('chairperson');
-  if(!leader || !leader.wa) return;
-  const msg = `*NGARA YACHU - IDHINI YA MWISHO INAHITAJIKA* 🏁\n\nHabari Mwenyekiti,\n\nOmbi la rambirambi limehakikiwa na Mweka Hazina na linasubiri idhini yako ya mwisho.\n\n👤 *Mwanachama:* ${member.jina_kamili}\n📞 *Simu:* ${member.namba_simu}\n👪 *Uhusiano:* ${claim.uhusiano}\n💔 *Marehemu:* ${claim.jina_marehemu}\n💰 *Kiasi:* ${pesa(claim.amount||0)}\n\nTafadhali ingia kwenye mfumo kutoa uamuzi wa mwisho.\n\nAsante.`;
-  openWaQueue([{phone: leader.wa, name: `Mwenyekiti — ${leader.user_name||''}`, message: msg}]);
+  const msg = `NGARA YACHU - IDHINI YA MWISHO\n\nHabari Mwenyekiti,\n\nOmbi la rambirambi limehakikiwa na Mweka Hazina na linasubiri idhini yako ya mwisho.\n\nMwanachama: ${member.jina_kamili}\nSimu: ${member.namba_simu}\nUhusiano: ${claim.uhusiano}\nMarehemu: ${claim.jina_marehemu}\nKiasi: ${pesa(claim.amount||0)}\n\nTafadhali ingia kwenye mfumo kutoa uamuzi wa mwisho.\n\nAsante. - Ngara Yachu`;
+  sendBeemSMS([{phone: PHONE_MWENYEKITI}], msg);
 }
 
 function notifyMemberApproval(member, claim){
   if(!member?.namba_simu) return;
-  const msg = `*NGARA YACHU* ✅\n\nHabari ${member.jina_kamili},\n\nOmbi lako la rambirambi ya msiba *LIMEIDHINISHWA*.\n\n👪 *Uhusiano:* ${claim.uhusiano}\n💔 *Marehemu:* ${claim.jina_marehemu}\n💰 *Kiasi:* ${pesa(claim.amount||MSAADA)}\n\nTafadhali fuatilia viongozi kwa hatua zinazofuata.\n\nNgara Yachu.`;
-  openWaQueue([{phone: member.namba_simu, name: member.jina_kamili, message: msg}]);
+  const msg = `NGARA YACHU\n\nHabari ${member.jina_kamili},\n\nOmbi lako la rambirambi ya msiba LIMEIDHINISHWA.\n\nUhusiano: ${claim.uhusiano}\nMarehemu: ${claim.jina_marehemu}\nKiasi: ${pesa(claim.amount||MSAADA)}\n\nTafadhali fuatilia viongozi kwa hatua zinazofuata.\n\nNgara Yachu`;
+  sendBeemSMS([{phone: member.namba_simu}], msg);
 }
 
 function notifyMemberRejection(member, claim, reason){
   if(!member?.namba_simu) return;
-  const msg = `*NGARA YACHU* ❌\n\nHabari ${member.jina_kamili},\n\nOmbi lako la rambirambi ya msiba *HAIKUIDHINISHWA*.\n\n👪 *Uhusiano:* ${claim.uhusiano}\n💔 *Marehemu:* ${claim.jina_marehemu}\n📝 *Sababu:* ${reason}\n\nKwa maelezo zaidi tafadhali wasiliana na viongozi.\n\nNgara Yachu.`;
-  openWaQueue([{phone: member.namba_simu, name: member.jina_kamili, message: msg}]);
+  const msg = `NGARA YACHU\n\nHabari ${member.jina_kamili},\n\nOmbi lako la rambirambi ya msiba HAIKUIDHINISHWA.\n\nUhusiano: ${claim.uhusiano}\nMarehemu: ${claim.jina_marehemu}\nSababu: ${reason}\n\nKwa maelezo zaidi tafadhali wasiliana na viongozi.\n\nNgara Yachu`;
+  sendBeemSMS([{phone: member.namba_simu}], msg);
 }
 
 function notifyMemberPayment(member, kiasi){
   if(!member?.namba_simu) return;
-  const msg = `*NGARA YACHU* 💳\n\nHabari ${member.jina_kamili},\n\nMalipo yako ya *${pesa(kiasi)}* yamepokelewa na kuhifadhiwa kwenye mfumo.\n\nSalio lako jipya: ${pesa(Number(member.salio||0)+kiasi)}\n\nAsante kwa ushirikiano wako.\n\nNgara Yachu.`;
-  openWaQueue([{phone: member.namba_simu, name: member.jina_kamili, message: msg}]);
+  const msg = `NGARA YACHU\n\nHabari ${member.jina_kamili},\n\nMalipo yako ya ${pesa(kiasi)} yamepokelewa na kuhifadhiwa kwenye mfumo.\n\nSalio lako jipya: ${pesa(Number(member.salio||0)+kiasi)}\n\nAsante kwa ushirikiano wako.\n\nNgara Yachu`;
+  sendBeemSMS([{phone: member.namba_simu}], msg);
 }
 
 function notifyMembersAnnouncementWA(members, title, body, priority){
   if(!members || !members.length) return;
   const icon = priorityIcon(priority);
-  const queue = members.map(m => ({
-    phone: m.namba_simu,
-    name: m.jina_kamili,
-    message: `*NGARA YACHU - TANGAZO* 📢\n${icon} *${title}*\n\n${body}\n\n— Ngara Yachu`
-  }));
-  openWaQueue(queue);
+  const recipients = members.map(m => ({phone: m.namba_simu, name: m.jina_kamili}));
+  const msg = `NGARA YACHU - TANGAZO\n${icon} ${title}\n\n${body}\n\n-- Ngara Yachu`;
+  sendBeemSMS(recipients, msg);
+}
+
+// Legacy stubs for backward compat
+function openWaQueue(recipients, onDone){ if(onDone) setTimeout(onDone, 100); }
+function closeWaQueue(){}
+function sendSingleWA(phone, message, name=''){ sendBeemSMS([{phone}], message); }
+function sendLeaderWaDirect(role, message){
+  const phoneMap = { secretary: PHONE_KATIBU, chairperson: PHONE_MWENYEKITI, treasurer: PHONE_MWEKAHAZINA };
+  const p = phoneMap[role];
+  if(p) sendBeemSMS([{phone: p}], message);
 }
 
 // ════════════════════════════════════════════════════════════
@@ -1203,9 +1097,8 @@ async function sendPasswordResetLink(){
     
     // Send WhatsApp
     hideLoading();
-    openWaQueue([{phone: member.namba_simu, name: member.jina_kamili, message: msg}], ()=>{
-      setTimeout(()=>{ showScreen('screen-login'); },1500);
-    });
+    sendBeemSMS([{phone: member.namba_simu, name: member.jina_kamili}], msg);
+    setTimeout(()=>{ showScreen('screen-login'); },1500);
 
   }catch(e){
     setAlert('forgot-alert',errMsg(e),'error');
@@ -1806,7 +1699,7 @@ async function idhinishaMabadiliko(updateId){
     await renderLeaderDashboard();
     hideLoading();
     const msg=`*NGARA YACHU* ✅\n\nHabari ${escapeHtml(upd.member_name)},\n\nOmbi lako la kubadilisha tegemezi *LIMEIDHINISHWA* na Katibu.\n\nTegemezi zako zimesasishwa katika mfumo.\n\nNgara Yachu.`;
-    openWaQueue([{phone: upd.member_phone, name: upd.member_name, message: msg}]);
+    sendBeemSMS([{phone: upd.member_phone, name: upd.member_name}], msg);
   }catch(e){ toast(errMsg(e)); hideLoading(); }
 }
 
@@ -1823,7 +1716,7 @@ async function kataaMabadiliko(updateId){
     await renderLeaderDashboard();
     hideLoading();
     const msg=`*NGARA YACHU* ❌\n\nHabari ${escapeHtml(upd.member_name)},\n\nOmbi lako la kubadilisha tegemezi *LIMEKATALIWA*.\n\n📝 *Sababu:* ${reason}\n\nKwa maelezo zaidi tafadhali wasiliana na Katibu.\n\nNgara Yachu.`;
-    openWaQueue([{phone: upd.member_phone, name: upd.member_name, message: msg}]);
+    sendBeemSMS([{phone: upd.member_phone, name: upd.member_name}], msg);
   }catch(e){ toast(errMsg(e)); hideLoading(); }
 }
 
@@ -1957,7 +1850,7 @@ function wasilianaNaMwanachama(memberId){
   const ujumbe = prompt(`Andika ujumbe kwa ${m.jina_kamili}:`);
   if(!ujumbe || !ujumbe.trim()) return;
   const msg = `*NGARA YACHU* 📋\n\nHabari ${m.jina_kamili},\n\n${ujumbe.trim()}\n\n— ${currentLeader ? currentLeader.cheo : 'Kiongozi'}, Ngara Yachu.`;
-  openWaQueue([{phone: m.namba_simu, name: m.jina_kamili, message: msg}]);
+  sendBeemSMS([{phone: m.namba_simu, name: m.jina_kamili}], msg);
 }
 
 async function idhinishaMwanachama(id){
@@ -1972,7 +1865,7 @@ async function idhinishaMwanachama(id){
     if(member){
       hideLoading();
       const msg=`*NGARA YACHU* ✅\n\nHabari ${member.jina_kamili},\n\nUsajili wako *UMEIDHINISHWA*!\n\nKaribu rasmi kwenye kikundi cha Ngara Yachu. Sasa unaweza kuingia kwenye mfumo kwa kutumia namba yako ya simu na PIN uliyochagua.\n\nNgara Yachu.`;
-      openWaQueue([{phone: member.namba_simu, name: member.jina_kamili, message: msg}]);
+      sendBeemSMS([{phone: member.namba_simu, name: member.jina_kamili}], msg);
     }
   } catch(e){ toast(errMsg(e)); }
   finally{ hideLoading(); }
@@ -2129,7 +2022,7 @@ async function setPaymentDate(){
         audience_count: approvedMembers.length,
         wa_sent: true
       }).catch(()=>{});
-      openWaQueue(queue);
+      sendBeemSMS(queue.map(r=>({phone:r.phone,name:r.name})), `NGARA YACHU - TAARIFA YA MALIPO YA RAMBIRAMBI\n\nMweka Hazina ameweka tarehe ya malipo ya rambirambi.\n\nTarehe ya Malipo: ${payDateStr}\nTarehe ya Mwisho (Deadline): ${deadlineDateStr}\n\nTafadhali lipa michango yako ya msiba kabla ya tarehe ya mwisho ili kuepuka faini ya ${pesa(FAINI)}.\n\nKiwango cha chini cha salio: ${pesa(MIN_SALIO)}\n\nAsante kwa ushirikiano wako.\n\nNgara Yachu`);
     }
   }catch(e){
     setAlert('payment-date-alert',errMsg(e),'error');
@@ -2163,7 +2056,7 @@ async function checkAndApplyPenalties(){
         await DB.insert('announcements',{title:'Taarifa ya Faini',body:`Umewekewa faini ya ${pesa(FAINI)} kutokana na kutotimiza kiwango cha chini cha salio (${pesa(MIN_SALIO)}).`,target:'single',recipient_ids:[member.id],priority:'urgent',sent_by_name:'Mfumo',sent_by_role:'system',audience_count:1,wa_sent:false});
         
         const msg=`*NGARA YACHU - TAHADHARI YA FAINI* ⚠️\n\nHabari ${member.jina_kamili},\n\nUmewekewa *FAINI YA ${pesa(FAINI)}* kutokana na kutotimiza kiwango cha chini cha salio.\n\n💰 *Salio Chako:* ${pesa(Number(member.salio||0)-FAINI)}\n📅 *Tarehe:* ${new Date().toLocaleString('en-GB')}\n\nTafadhali hurumia kuweka salio lako kuwa ${pesa(MIN_SALIO)} au zaidi.\n\nAsante,\nNgara Yachu.`;
-        openWaQueue([{phone: member.namba_simu, name: member.jina_kamili, message: msg}]);
+        sendBeemSMS([{phone: member.namba_simu, name: member.jina_kamili}], msg);
       }
     }
   }catch(e){
