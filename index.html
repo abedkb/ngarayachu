@@ -983,7 +983,9 @@ async function doRegister(){
     // ─── check phone not already registered ───────────────
     const existing = await DB.getWhere('members','namba_simu', phone);
     if(existing.length){
+      hideLoading();
       setAlert('reg-alert','Namba hii tayari imesajiliwa.','error');
+      btn.disabled = false;
       return;
     }
 
@@ -1042,7 +1044,6 @@ async function doRegister(){
         is_active:  true
       });
 
-      hideLoading();
       setAlert('reg-alert',
         `✅ Akaunti yako imehifadhiwa! Ingia kama Kiongozi kwa username "${ldrUser}" na neno siri ulioweka.`,
         'success');
@@ -1067,7 +1068,6 @@ async function doRegister(){
         await DB.insert('dependants', {...t, mwanachama_id: member.id}).catch(()=>{});
       }
 
-      hideLoading();
       setAlert('reg-alert','✅ Ombi lako limehifadhiwa! Subiri idhini ya Katibu.','success');
       toast('Usajili umefanikiwa');
       clearRegisterForm();
@@ -1075,10 +1075,10 @@ async function doRegister(){
     }
 
   } catch(e){
-    hideLoading();
     setAlert('reg-alert', `Hitilafu: ${e.message}`, 'error');
     console.error('doRegister error:', e);
   } finally {
+    hideLoading();
     btn.disabled = false;
   }
 }
